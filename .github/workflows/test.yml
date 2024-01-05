@@ -24,7 +24,6 @@ jobs:
           . venv/bin/activate
           pip install maturin
           pip install -r tests/requirements.txt
-          pip install -r requirements.txt
           maturin develop
       - name: Run tests
         run: |
