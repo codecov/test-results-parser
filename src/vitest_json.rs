@@ -2,7 +2,7 @@ use pyo3::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::helpers::ParserError;
+use crate::helpers::{s, ParserError};
 use crate::testrun::{Outcome, Testrun};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -15,6 +15,8 @@ struct AssertionResult {
     title: String,
     #[serde(rename = "duration")]
     duration_milliseconds: i64,
+    #[serde(rename = "failureMessages")]
+    failure_messages: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -61,6 +63,7 @@ pub fn parse_vitest_json(file_bytes: Vec<u8>) -> PyResult<Vec<Testrun>> {
                             }
                         }),
                         testsuite: result.name.clone(),
+                        failure_message: aresult.failure_messages.join(" "),
                     })
                 })
                 .collect::<Vec<_>>()

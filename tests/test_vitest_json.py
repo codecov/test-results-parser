@@ -9,24 +9,28 @@ def test_vitest_json():
             0.009,
             Outcome.Failure,
             "/root-directory/__tests__/test-file-1.test.ts",
+            "expected 5 to be 4 // Object.is equality",
         ),
         Testrun(
             " first test file 2 + 2 should equal 4",
             0.009,
             Outcome.Failure,
             "/root-directory/__tests__/test-file-1.test.ts",
+            "expected 5 to be 4 // Object.is equality",
         ),
         Testrun(
             " first test file 2 + 2 should equal 4",
             0.009,
             Outcome.Failure,
             "/root-directory/__tests__/test-file-1.test.ts",
+            "expected 5 to be 4 // Object.is equality",
         ),
         Testrun(
             " first test file 2 + 2 should equal 4",
             0.009,
             Outcome.Failure,
             "/root-directory/__tests__/test-file-1.test.ts",
+            "expected 5 to be 4 // Object.is equality",
         ),
     ]
 

@@ -36,6 +36,8 @@ pub struct Testrun {
     pub outcome: Outcome,
     #[pyo3(get, set)]
     pub testsuite: String,
+    #[pyo3(get, set)]
+    pub failure_message: String,
 }
 
 impl Testrun {
@@ -45,6 +47,7 @@ impl Testrun {
             duration: 0.0,
             outcome: Outcome::Pass,
             testsuite: s(""),
+            failure_message: s(""),
         }
     }
 }
@@ -52,19 +55,26 @@ impl Testrun {
 #[pymethods]
 impl Testrun {
     #[new]
-    fn new(name: String, duration: f64, outcome: Outcome, testsuite: String) -> Self {
+    fn new(
+        name: String,
+        duration: f64,
+        outcome: Outcome,
+        testsuite: String,
+        failure_message: String,
+    ) -> Self {
         Self {
             name,
             duration,
             outcome,
             testsuite,
+            failure_message,
         }
     }
 
     fn __repr__(&self) -> String {
         format!(
-            "({}, {}, {}, {})",
-            self.name, self.outcome, self.duration, self.testsuite
+            "({}, {}, {}, {}, {})",
+            self.name, self.outcome, self.duration, self.testsuite, self.failure_message
         )
     }
 
@@ -73,7 +83,8 @@ impl Testrun {
             CompareOp::Eq => Ok(self.name == other.name
                 && self.outcome == other.outcome
                 && self.duration == other.duration
-                && self.testsuite == other.testsuite),
+                && self.testsuite == other.testsuite
+                && self.failure_message == other.failure_message),
             _ => todo!(),
         }
     }
