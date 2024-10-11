@@ -23,7 +23,7 @@ class TestParsers:
                             0.001,
                             Outcome.Failure,
                             "pytest",
-                            """self = &lt;test_parsers.TestParsers object at 0x102182d10&gt;, filename = 'junit.xml', expected = '', check = True
+                            """self = <test_parsers.TestParsers object at 0x102182d10>, filename = 'junit.xml', expected = '', check = True
 
     @pytest.mark.parametrize(
         "filename,expected,check",
@@ -35,7 +35,7 @@ class TestParsers:
             res = parse_junit_xml(junit_string)
             print(res)
             if check:
-&gt;               assert res == expected
+>               assert res == expected
 E               AssertionError: assert [{'duration': '0.010', 'name': 'tests.test_parsers.TestParsers.test_junit[junit.xml-]', 'outcome': 'failure'}, {'duration': '0.063', 'name': 'tests.test_parsers.TestParsers.test_junit[jest-junit.xml-]', 'outcome': 'pass'}] == ''
 
 tests/test_parsers.py:16: AssertionError""",
@@ -155,7 +155,7 @@ tests/test_parsers.py:16: AssertionError""",
                     Framework.Vitest,
                     [
                         Testrun(
-                            "first test file &gt; 2 + 2 should equal 4",
+                            "first test file > 2 + 2 should equal 4",
                             "__tests__/test-file-1.test.ts",
                             0.01,
                             Outcome.Failure,
@@ -165,7 +165,7 @@ tests/test_parsers.py:16: AssertionError""",
                             None,
                         ),
                         Testrun(
-                            "first test file &gt; 4 - 2 should equal 2",
+                            "first test file > 4 - 2 should equal 2",
                             "__tests__/test-file-1.test.ts",
                             0,
                             Outcome.Pass,

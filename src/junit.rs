@@ -1,5 +1,6 @@
 use pyo3::prelude::*;
 
+use quick_xml::escape::unescape;
 use quick_xml::events::attributes::Attributes;
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::reader::Reader;
@@ -12,6 +13,12 @@ struct RelevantAttrs {
     name: Option<String>,
     time: Option<String>,
     file: Option<String>,
+}
+
+fn unescape_string(s: String) -> PyResult<String> {
+    unescape(&s)
+        .map_err(|e| ParserError::new_err(format!("Error unescaping XML: {}", e)))
+        .map(|s| s.to_string())
 }
 
 // from https://gist.github.com/scott-codecov/311c174ecc7de87f7d7c50371c6ef927#file-cobertura-rs-L18-L31
@@ -29,8 +36,8 @@ fn get_relevant_attrs(attributes: Attributes) -> PyResult<RelevantAttrs> {
         let value = String::from_utf8(bytes)?;
         match attribute.key.into_inner() {
             b"time" => rel_attrs.time = Some(value),
-            b"classname" => rel_attrs.classname = Some(value),
-            b"name" => rel_attrs.name = Some(value),
+            b"classname" => rel_attrs.classname = Some(unescape_string(value)?),
+            b"name" => rel_attrs.name = Some(unescape_string(value)?),
             b"file" => rel_attrs.file = Some(value),
             _ => {}
         }
@@ -144,15 +151,24 @@ pub fn parse_junit_xml(file_bytes: &[u8]) -> PyResult<ParsingInfo> {
                         .ok_or_else(|| ParserError::new_err("Error accessing saved testrun"))?;
                     testrun.outcome = Outcome::Failure;
 
-                    testrun.failure_message = get_attribute(&e, "message")?;
+                    testrun.failure_message = get_attribute(&e, "message")?
+                        .map(|s| unescape_string(s))
+                        .transpose()?;
+
                     in_failure = true;
                 }
                 b"testsuite" => {
-                    testsuite_names.push(get_attribute(&e, "name")?);
+                    testsuite_names.push(
+                        get_attribute(&e, "name")?
+                            .map(|s| unescape_string(s))
+                            .transpose()?,
+                    );
                     testsuite_time.push(get_attribute(&e, "time")?);
                 }
                 b"testsuites" => {
-                    testsuites_name = get_attribute(&e, "name")?;
+                    testsuites_name = get_attribute(&e, "name")?
+                        .map(|s| unescape_string(s))
+                        .transpose()?;
                 }
                 _ => {}
             },
@@ -199,7 +215,9 @@ pub fn parse_junit_xml(file_bytes: &[u8]) -> PyResult<ParsingInfo> {
                     xml_failure_message.inplace_trim_start();
 
                     testrun.failure_message =
-                        Some(String::from_utf8(xml_failure_message.to_vec())?);
+                        Some(String::from_utf8(xml_failure_message.to_vec())?)
+                            .map(|s| unescape_string(s))
+                            .transpose()?;
                 }
             }
 
