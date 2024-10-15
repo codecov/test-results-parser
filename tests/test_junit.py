@@ -228,6 +228,23 @@ tests/test_parsers.py:16: AssertionError""",
                     ],
                 ),
             ),
+            (
+                "./tests/no-testsuites.xml",
+                ParsingInfo(
+                    None,
+                    [
+                        Testrun(
+                            "test_name",
+                            "test_classname",
+                            0.1,
+                            Outcome.Pass,
+                            "testsuite_name",
+                            None,
+                            None,
+                        ),
+                    ],
+                ),
+            ),
         ],
     )
     def test_junit(self, filename, expected):
