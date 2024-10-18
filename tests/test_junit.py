@@ -228,6 +228,39 @@ tests/test_parsers.py:16: AssertionError""",
                     ],
                 ),
             ),
+            (
+                "./tests/no-time.xml",
+                ParsingInfo(
+                    Framework.PHPUnit,
+                    [
+                        Testrun(
+                            "test1",
+                            "class.className",
+                            None,
+                            Outcome.Pass,
+                            "Thing",
+                            None,
+                            "/file1.php",
+                        ),
+                        Testrun(
+                            "test2",
+                            "",
+                            None,
+                            Outcome.Pass,
+                            "Thing",
+                            None,
+                            "/file1.php",
+                        ),
+                    ],
+                ),
+            ),
+            (
+                "./tests/testsuites.xml",
+                ParsingInfo(
+                    None,
+                    [],
+                ),
+            ),
         ],
     )
     def test_junit(self, filename, expected):

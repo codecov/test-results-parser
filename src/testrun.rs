@@ -83,7 +83,7 @@ pub struct Testrun {
     #[pyo3(get, set)]
     pub classname: String,
     #[pyo3(get, set)]
-    pub duration: f64,
+    pub duration: Option<f64>,
     #[pyo3(get, set)]
     pub outcome: Outcome,
     #[pyo3(get, set)]
@@ -101,7 +101,7 @@ impl Testrun {
         Testrun {
             name: "".into(),
             classname: "".into(),
-            duration: 0.0,
+            duration: None,
             outcome: Outcome::Pass,
             testsuite: "".into(),
             failure_message: None,
@@ -147,7 +147,7 @@ impl Testrun {
     fn new(
         name: String,
         classname: String,
-        duration: f64,
+        duration: Option<f64>,
         outcome: Outcome,
         testsuite: String,
         failure_message: Option<String>,
@@ -168,7 +168,7 @@ impl Testrun {
 
     fn __repr__(&self) -> String {
         format!(
-            "({}, {}, {}, {}, {}, {:?}, {:?})",
+            "({}, {}, {}, {:?}, {}, {:?}, {:?})",
             self.name,
             self.classname,
             self.outcome,
@@ -279,7 +279,7 @@ mod tests {
         let t = Testrun {
             classname: "".to_string(),
             name: "".to_string(),
-            duration: 0.0,
+            duration: None,
             outcome: Outcome::Pass,
             testsuite: "pytest".to_string(),
             failure_message: None,
@@ -294,7 +294,7 @@ mod tests {
         let t = Testrun {
             classname: "".to_string(),
             name: "".to_string(),
-            duration: 0.0,
+            duration: None,
             outcome: Outcome::Pass,
             testsuite: "".to_string(),
             failure_message: None,
@@ -309,7 +309,7 @@ mod tests {
         let t = Testrun {
             classname: ".py".to_string(),
             name: "".to_string(),
-            duration: 0.0,
+            duration: None,
             outcome: Outcome::Pass,
             testsuite: "".to_string(),
             failure_message: None,
@@ -324,7 +324,7 @@ mod tests {
         let t = Testrun {
             classname: "".to_string(),
             name: ".py".to_string(),
-            duration: 0.0,
+            duration: None,
             outcome: Outcome::Pass,
             testsuite: "".to_string(),
             failure_message: None,
@@ -339,7 +339,7 @@ mod tests {
         let t = Testrun {
             classname: "".to_string(),
             name: "".to_string(),
-            duration: 0.0,
+            duration: None,
             outcome: Outcome::Pass,
             testsuite: "".to_string(),
             failure_message: Some(".py".to_string()),
@@ -354,7 +354,7 @@ mod tests {
         let t = Testrun {
             classname: "".to_string(),
             name: "".to_string(),
-            duration: 0.0,
+            duration: None,
             outcome: Outcome::Pass,
             testsuite: "".to_string(),
             failure_message: Some(".py".to_string()),
