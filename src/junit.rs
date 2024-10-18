@@ -61,11 +61,12 @@ fn populate(
         .name
         .ok_or_else(|| ParserError::new_err("No name found"))?;
 
-    let duration = match rel_attrs.time {
-        None => testsuite_time
-            .ok_or_else(|| ParserError::new_err("No time/duration found"))?
-            .parse()?,
-        Some(time_str) => time_str.parse()?,
+    let duration: Option<f64> = match rel_attrs.time {
+        Some(time_str) => Some(time_str.parse()?),
+        None => match testsuite_time {
+            Some(time_str) => Some(time_str.parse()?),
+            None => None,
+        },
     };
 
     Ok(Testrun {

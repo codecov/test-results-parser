@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+    <testsuite name="/file1.xml" tests="2"
+        assertions="2" errors="0" failures="0" skipped="0">
+        <testsuite name="Thing"
+            file="/file1.php"
+            tests="2" assertions="2" errors="0" failures="0" skipped="0">
+            <testcase
+                name="test1"
+                file="/file1.php"
+                line="1"
+                classname="class.className" assertions="1"
+            />
+            <testcase
+                name="test2"
+                file="/file1.php"
+                line="2"
+                assertions="1"
+            />
+        </testsuite>
+    </testsuite>
+</testsuites>
