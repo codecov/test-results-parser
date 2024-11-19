@@ -1,6 +1,7 @@
 use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 
+mod binary;
 mod compute_name;
 mod failure_message;
 mod junit;
