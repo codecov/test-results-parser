@@ -60,16 +60,16 @@ mod tests {
         let parsed = TestAnalytics::parse(&buf, 0).unwrap();
         let mut tests = parsed.tests();
 
-        let abc = tests.next().unwrap().unwrap();
-        assert_eq!(abc.name(), "abc");
-        let aggregates = abc.get_aggregates(60..0);
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "abc");
+        let aggregates = abc.get_aggregates(0..60);
         assert_eq!(aggregates.total_pass_count, 1);
         assert_eq!(aggregates.total_fail_count, 1);
         assert_eq!(aggregates.avg_duration, 1.5);
 
-        let abc = tests.next().unwrap().unwrap();
-        assert_eq!(abc.name(), "def");
-        let aggregates = abc.get_aggregates(60..0);
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "def");
+        let aggregates = abc.get_aggregates(0..60);
         assert_eq!(aggregates.total_skip_count, 1);
 
         assert!(tests.next().is_none());
@@ -101,28 +101,29 @@ mod tests {
         let parsed = TestAnalytics::parse(&buf, 0).unwrap();
         let mut tests = parsed.tests();
 
-        let abc = tests.next().unwrap().unwrap();
-        assert_eq!(abc.name(), "abc");
-        let aggregates = abc.get_aggregates(1..0);
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "abc");
+        let aggregates = abc.get_aggregates(0..1);
         assert_eq!(aggregates.total_pass_count, 1);
         assert_eq!(aggregates.avg_duration, 1.0);
 
         assert!(tests.next().is_none());
 
         // next, we re-parse one day ahead
-        // now, the data should be in the "yesterday" bucket
         let parsed = TestAnalytics::parse(&buf, 1 * DAY).unwrap();
         let mut tests = parsed.tests();
 
-        let abc = tests.next().unwrap().unwrap();
-        assert_eq!(abc.name(), "abc");
-        let aggregates = abc.get_aggregates(2..1);
-        assert_eq!(aggregates.total_pass_count, 1);
-        assert_eq!(aggregates.avg_duration, 1.0);
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "abc");
 
         // the "today" bucket should be empty
-        let aggregates = abc.get_aggregates(1..0);
+        let aggregates = abc.get_aggregates(0..1);
         assert_eq!(aggregates.total_pass_count, 0);
+
+        // now, the data should be in the "yesterday" bucket
+        let aggregates = abc.get_aggregates(1..2);
+        assert_eq!(aggregates.total_pass_count, 1);
+        assert_eq!(aggregates.avg_duration, 1.0);
 
         assert!(tests.next().is_none());
     }

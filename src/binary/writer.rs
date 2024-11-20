@@ -65,7 +65,7 @@ impl TestAnalyticsWriter {
             self.last_duration.resize(expected_size, 0.);
         }
 
-        let data_idx = (idx + 1) * self.num_days as usize - 1;
+        let data_idx = idx * self.num_days as usize;
         self.total_duration[data_idx] += test.duration as f32;
 
         if self.last_timestamp[data_idx] < self.timestamp {

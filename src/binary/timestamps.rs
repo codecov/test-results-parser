@@ -48,12 +48,12 @@ pub fn adjust_selection_range(
 ) -> Range<usize> {
     let range_start = data_range
         .start
-        .saturating_add_signed(today_offset)
-        .saturating_add(desired_range.start);
+        .saturating_add(desired_range.start)
+        .saturating_add_signed(today_offset);
     let range_end = data_range
         .start
-        .saturating_add_signed(today_offset)
-        .saturating_add(desired_range.end);
+        .saturating_add(desired_range.end)
+        .saturating_add_signed(today_offset);
     let range_start = range_start.max(data_range.start);
     let range_end = range_end.min(data_range.end);
     range_start..range_end

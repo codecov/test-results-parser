@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::Range;
 
-use timestamps::offset_from_today;
+use timestamps::{adjust_selection_range, offset_from_today};
 use watto::{align_to, Pod};
 
 use super::*;
@@ -108,41 +108,22 @@ impl<'data> TestAnalytics<'data> {
     }
 
     /// Iterates over the [`Test`]s included in the [`TestAnalytics`] summary.
-    pub fn tests(&self) -> impl Iterator<Item = Result<Test<'data>, TestAnalyticsError>> + '_ {
+    pub fn tests(&self) -> impl Iterator<Item = Test<'data, '_>> + '_ {
         let num_days = self.header.num_days as usize;
         self.tests.iter().enumerate().map(move |(i, test)| {
             let start_idx = i * num_days;
             let mut end_idx = start_idx + num_days - 1;
             let latest_test_timestamp = self.last_timestamp[end_idx];
+            let today_offset = offset_from_today(latest_test_timestamp, self.timestamp);
 
-            // TODO: maybe move this offset logic someplace else
-            let days_offset = offset_from_today(latest_test_timestamp, self.timestamp);
-            let days_offset = if days_offset < 0 {
-                // this means the stored data contains days/buckets in the *future*
-                // in this case we just slice off the excess data
-                end_idx = (end_idx as isize + days_offset) as usize;
-                0
-            } else {
-                days_offset as usize
-            };
-            let data_range = start_idx..=end_idx;
-
-            // TODO: maybe we want to resolve this on access, so we don’t have to do error handling here?
-            let name = watto::StringTable::read(self.string_bytes, test.name_offset as usize)
-                .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference)?;
-
-            Ok(Test {
-                name,
-                days_offset,
-                total_pass_count: &self.total_pass_count[data_range.clone()],
-                total_fail_count: &self.total_fail_count[data_range.clone()],
-                total_skip_count: &self.total_skip_count[data_range.clone()],
-                total_flaky_fail_count: &self.total_flaky_fail_count[data_range.clone()],
-                total_duration: &self.total_duration[data_range.clone()],
-
-                last_timestamp: &self.last_timestamp[data_range.clone()],
-                last_duration: &self.last_duration[data_range.clone()],
-            })
+            end_idx += 1;
+            let data_range = start_idx..end_idx;
+            Test {
+                today_offset,
+                container: self,
+                data: test,
+                data_range,
+            }
         })
     }
 }
@@ -160,59 +141,43 @@ impl<'data> fmt::Debug for TestAnalytics<'data> {
 
 /// This represents a specific test for which test analytics data is gathered.
 #[derive(Clone, PartialEq)]
-pub struct Test<'data> {
-    name: &'data str,
+pub struct Test<'data, 'parsed> {
+    today_offset: isize,
+    container: &'parsed TestAnalytics<'data>,
 
-    days_offset: usize,
-
-    total_pass_count: &'data [u16],
-    total_fail_count: &'data [u16],
-    total_skip_count: &'data [u16],
-    total_flaky_fail_count: &'data [u16],
-    total_duration: &'data [f32],
-
-    last_timestamp: &'data [u32],
-    last_duration: &'data [f32],
+    data: &'data raw::Test,
+    data_range: Range<usize>,
 }
 
-impl<'data> Test<'data> {
+impl<'data, 'parsed> Test<'data, 'parsed> {
     /// Returns the name of the test.
-    pub fn name(&self) -> &'data str {
-        self.name
+    pub fn name(&self) -> Result<&'data str, TestAnalyticsError> {
+        watto::StringTable::read(self.container.string_bytes, self.data.name_offset as usize)
+            .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference.into())
     }
 
     /// Calculates aggregate data for the given [`Range`] of days.
-    ///
-    /// The day range should be given in reverse-notation, for example
-    /// `7..0` to get the aggregates from 7 days ago till now.
-    pub fn get_aggregates(&self, range: Range<usize>) -> Aggregates {
-        // TODO: move this logic someplace else
-        let num_days = self.total_pass_count.len();
-        let range_start = (num_days + self.days_offset)
-            .saturating_sub(range.start)
-            .min(num_days);
-        let range_end = (num_days + self.days_offset)
-            .saturating_sub(range.end)
-            .min(num_days);
-        let range = range_start..range_end;
+    pub fn get_aggregates(&self, desired_range: Range<usize>) -> Aggregates {
+        let adjusted_range =
+            adjust_selection_range(self.data_range.clone(), desired_range, self.today_offset);
 
-        let total_pass_count = self.total_pass_count[range.clone()]
+        let total_pass_count = self.container.total_pass_count[adjusted_range.clone()]
             .iter()
             .map(|c| *c as u32)
             .sum();
-        let total_fail_count = self.total_fail_count[range.clone()]
+        let total_fail_count = self.container.total_fail_count[adjusted_range.clone()]
             .iter()
             .map(|c| *c as u32)
             .sum();
-        let total_skip_count = self.total_skip_count[range.clone()]
+        let total_skip_count = self.container.total_skip_count[adjusted_range.clone()]
             .iter()
             .map(|c| *c as u32)
             .sum();
-        let total_flaky_fail_count = self.total_flaky_fail_count[range.clone()]
+        let total_flaky_fail_count = self.container.total_flaky_fail_count[adjusted_range.clone()]
             .iter()
             .map(|c| *c as u32)
             .sum();
-        let total_duration: f64 = self.total_duration[range.clone()]
+        let total_duration: f64 = self.container.total_duration[adjusted_range.clone()]
             .iter()
             .map(|d| *d as f64)
             .sum();
