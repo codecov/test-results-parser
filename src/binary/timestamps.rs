@@ -22,8 +22,12 @@ pub fn shift_data<T: Copy + Default>(data: &mut [T], today_offset: isize) {
     if today_offset == 0 {
         return;
     }
+
     let slice_end = data.len().saturating_add_signed(today_offset);
-    data.copy_within(0..slice_end, -today_offset as usize);
+    let slice_begin = -today_offset as usize;
+    data.copy_within(0..slice_end, slice_begin);
+    let begin = &mut data[0..slice_begin];
+    begin.fill_with(Default::default);
 }
 
 /// This adjusts the `desired_range` to select the right subset of `data_range`
@@ -97,5 +101,15 @@ mod tests {
 
         let range = adjust_selection_range(20..80, 0..7, 1);
         assert_eq!(range, 21..28);
+    }
+
+    #[test]
+    fn test_shift_data() {
+        let mut data = vec![1, 2, 3];
+        shift_data(&mut data, 0);
+        assert_eq!(&data, &[1, 2, 3]);
+
+        shift_data(&mut data, -1);
+        assert_eq!(&data, &[0, 1, 2]);
     }
 }
