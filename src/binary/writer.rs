@@ -5,9 +5,7 @@ use watto::{Pod, StringTable};
 
 use crate::testrun;
 
-#[cfg(doc)]
-use super::format::TestAnalytics;
-use super::raw;
+use super::*;
 
 /// The [`TestAnalytics`] File Writer.
 #[derive(Debug)]

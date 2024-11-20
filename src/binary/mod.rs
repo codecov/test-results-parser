@@ -1,12 +1,14 @@
+mod error;
 mod format;
 mod raw;
 mod writer;
 
+pub use error::{TestAnalyticsError, TestAnalyticsErrorKind};
+pub use format::TestAnalytics;
+pub use writer::TestAnalyticsWriter;
+
 #[cfg(test)]
 mod tests {
-    use format::TestAnalytics;
-    use writer::TestAnalyticsWriter;
-
     use crate::testrun::{Outcome, Testrun};
 
     use super::*;

@@ -1,5 +1,6 @@
 use watto::Pod;
 
+/// The magic file preamble, encoded as little-endian `CCTA`.
 pub const TA_MAGIC: u32 = u32::from_le_bytes(*b"CCTA");
 
 #[derive(Debug, Clone, PartialEq, Eq)]
