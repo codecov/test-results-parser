@@ -10,6 +10,7 @@ use super::*;
 /// The [`TestAnalytics`] File Writer.
 #[derive(Debug)]
 pub struct TestAnalyticsWriter {
+    timestamp: u32,
     num_days: u32,
 
     tests: IndexSet<raw::Test>,
@@ -20,13 +21,17 @@ pub struct TestAnalyticsWriter {
     total_flaky_fail_count: Vec<u16>,
     total_duration: Vec<f32>,
 
+    last_timestamp: Vec<u32>,
+    last_duration: Vec<f32>,
+
     string_table: StringTable,
 }
 
 impl TestAnalyticsWriter {
     /// Creates a new Writer.
-    pub fn new(num_days: u32) -> Self {
+    pub fn new(num_days: u32, timestamp: u32) -> Self {
         Self {
+            timestamp,
             num_days,
             tests: IndexSet::new(),
 
@@ -36,10 +41,14 @@ impl TestAnalyticsWriter {
             total_flaky_fail_count: vec![],
             total_duration: vec![],
 
+            last_timestamp: vec![],
+            last_duration: vec![],
+
             string_table: Default::default(),
         }
     }
 
+    /// Writes the data for the given [`Testrun`](testrun::Testrun) into this aggregation.
     pub fn add_test_run(&mut self, test: &testrun::Testrun) {
         let name_offset = self.string_table.insert(&test.name) as u32;
         let (idx, inserted) = self.tests.insert_full(raw::Test { name_offset });
@@ -51,10 +60,19 @@ impl TestAnalyticsWriter {
             self.total_skip_count.resize(expected_size, 0);
             self.total_flaky_fail_count.resize(expected_size, 0);
             self.total_duration.resize(expected_size, 0.);
+
+            self.last_timestamp.resize(expected_size, 0);
+            self.last_duration.resize(expected_size, 0.);
         }
 
-        let data_idx = idx * self.num_days as usize;
+        let data_idx = (idx + 1) * self.num_days as usize - 1;
         self.total_duration[data_idx] += test.duration as f32;
+
+        if self.last_timestamp[data_idx] < self.timestamp {
+            self.last_timestamp[data_idx] = self.timestamp;
+            self.last_duration[data_idx] = test.duration as f32;
+        }
+
         match test.outcome {
             testrun::Outcome::Pass => self.total_pass_count[data_idx] += 1,
             testrun::Outcome::Error | testrun::Outcome::Failure => {
@@ -103,6 +121,12 @@ impl TestAnalyticsWriter {
         writer.align_to(8)?;
 
         writer.write_all(self.total_duration.as_bytes())?;
+        writer.align_to(8)?;
+
+        writer.write_all(self.last_timestamp.as_bytes())?;
+        writer.align_to(8)?;
+
+        writer.write_all(self.last_duration.as_bytes())?;
         writer.align_to(8)?;
 
         writer.write_all(&string_bytes)?;
