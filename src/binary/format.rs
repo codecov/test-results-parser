@@ -14,20 +14,20 @@ pub(crate) const TA_VERSION: u32 = 1;
 /// This can be parsed from a binary buffer via [`TestAnalytics::parse`].
 #[derive(Clone, PartialEq)]
 pub struct TestAnalytics<'data> {
-    header: &'data raw::Header,
-    tests: &'data [raw::Test],
-    timestamp: u32,
+    pub(crate) header: &'data raw::Header,
+    pub(crate) tests: &'data [raw::Test],
+    pub(crate) timestamp: u32,
 
-    total_pass_count: &'data [u16],
-    total_fail_count: &'data [u16],
-    total_skip_count: &'data [u16],
-    total_flaky_fail_count: &'data [u16],
-    total_duration: &'data [f32],
+    pub(crate) total_pass_count: &'data [u16],
+    pub(crate) total_fail_count: &'data [u16],
+    pub(crate) total_skip_count: &'data [u16],
+    pub(crate) total_flaky_fail_count: &'data [u16],
+    pub(crate) total_duration: &'data [f32],
 
-    last_timestamp: &'data [u32],
-    last_duration: &'data [f32],
+    pub(crate) last_timestamp: &'data [u32],
+    pub(crate) last_duration: &'data [f32],
 
-    string_bytes: &'data [u8],
+    pub(crate) string_bytes: &'data [u8],
 }
 
 impl<'data> TestAnalytics<'data> {

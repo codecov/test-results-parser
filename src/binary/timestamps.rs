@@ -17,6 +17,15 @@ pub fn offset_from_today(timestamp_saved: u32, timestamp_now: u32) -> isize {
     days_saved as isize - days_now as isize
 }
 
+/// Possibly shifts `data` according to `today_offset`.
+pub fn shift_data<T: Copy + Default>(data: &mut [T], today_offset: isize) {
+    if today_offset == 0 {
+        return;
+    }
+    let slice_end = data.len().saturating_add_signed(today_offset);
+    data.copy_within(0..slice_end, -today_offset as usize);
+}
+
 /// This adjusts the `desired_range` to select the right subset of `data_range`
 /// so that it matches up the days we want to select.
 ///
