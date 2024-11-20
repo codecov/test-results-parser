@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::Range;
 
-use timestamps::days_offset;
+use timestamps::offset_from_today;
 use watto::{align_to, Pod};
 
 use super::*;
@@ -116,7 +116,7 @@ impl<'data> TestAnalytics<'data> {
             let latest_test_timestamp = self.last_timestamp[end_idx];
 
             // TODO: maybe move this offset logic someplace else
-            let days_offset = days_offset(latest_test_timestamp, self.timestamp);
+            let days_offset = offset_from_today(latest_test_timestamp, self.timestamp);
             let days_offset = if days_offset < 0 {
                 // this means the stored data contains days/buckets in the *future*
                 // in this case we just slice off the excess data
