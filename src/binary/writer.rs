@@ -117,7 +117,7 @@ impl TestAnalyticsWriter {
 
         self.total_duration[data_idx] += test.duration as f32;
 
-        if self.last_timestamp[data_idx] < self.timestamp {
+        if self.last_timestamp[data_idx] <= self.timestamp {
             self.last_timestamp[data_idx] = self.timestamp;
             self.last_duration[data_idx] = test.duration as f32;
         }

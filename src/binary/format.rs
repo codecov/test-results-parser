@@ -112,12 +112,10 @@ impl<'data> TestAnalytics<'data> {
         let num_days = self.header.num_days as usize;
         self.tests.iter().enumerate().map(move |(i, test)| {
             let start_idx = i * num_days;
-            let mut end_idx = start_idx + num_days - 1;
-            let latest_test_timestamp = self.last_timestamp[end_idx];
+            let latest_test_timestamp = self.last_timestamp[start_idx];
             let today_offset = offset_from_today(latest_test_timestamp, self.timestamp);
 
-            end_idx += 1;
-            let data_range = start_idx..end_idx;
+            let data_range = start_idx..start_idx + num_days;
             Test {
                 today_offset,
                 container: self,
@@ -140,7 +138,7 @@ impl<'data> fmt::Debug for TestAnalytics<'data> {
 }
 
 /// This represents a specific test for which test analytics data is gathered.
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Test<'data, 'parsed> {
     today_offset: isize,
     container: &'parsed TestAnalytics<'data>,
@@ -208,7 +206,7 @@ impl<'data, 'parsed> Test<'data, 'parsed> {
 }
 
 /// Contains test run data aggregated over a given time period.
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Aggregates {
     pub total_pass_count: u32,
     pub total_fail_count: u32,
