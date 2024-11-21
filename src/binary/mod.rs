@@ -231,4 +231,66 @@ mod tests {
 
         assert!(tests.next().is_none());
     }
+
+    #[test]
+    fn test_garbage_collection() {
+        let test = Testrun {
+            name: "abc".into(),
+            classname: "".into(),
+            duration: 1.0,
+            outcome: Outcome::Pass,
+            testsuite: "".into(),
+            failure_message: None,
+            filename: None,
+            build_url: None,
+            computed_name: None,
+        };
+
+        let mut writer = TestAnalyticsWriter::new(2, 0);
+
+        writer.add_test_run(&test);
+
+        let mut buf = vec![];
+        writer.serialize(&mut buf).unwrap();
+
+        let parsed = TestAnalytics::parse(&buf, 1 * DAY).unwrap();
+        let mut writer = TestAnalyticsWriter::from_existing_format(&parsed, 1 * DAY).unwrap();
+
+        let was_rewritten = writer.rewrite(2, Some(0)).unwrap();
+        assert!(!was_rewritten);
+
+        let was_rewritten = writer.rewrite(7, Some(0)).unwrap();
+        assert!(was_rewritten);
+
+        let mut buf = vec![];
+        writer.serialize(&mut buf).unwrap();
+
+        let parsed = TestAnalytics::parse(&buf, 1 * DAY).unwrap();
+        let mut tests = parsed.tests();
+
+        // nothing garbage collected yet
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "abc");
+
+        // we should have data in the "yesterday" bucket
+        let aggregates = abc.get_aggregates(1..2);
+        assert_eq!(aggregates.total_pass_count, 1);
+        assert_eq!(aggregates.avg_duration, 1.0);
+
+        assert!(tests.next().is_none());
+
+        let mut writer = TestAnalyticsWriter::from_existing_format(&parsed, 3 * DAY).unwrap();
+
+        let was_rewritten = writer.rewrite(2, Some(0)).unwrap();
+        assert!(was_rewritten);
+
+        let mut buf = vec![];
+        writer.serialize(&mut buf).unwrap();
+
+        let parsed = TestAnalytics::parse(&buf, 3 * DAY).unwrap();
+        let mut tests = parsed.tests();
+
+        // the test was garbage collected
+        assert!(tests.next().is_none());
+    }
 }

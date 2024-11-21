@@ -1,4 +1,5 @@
 use std::io::Write;
+use std::mem;
 use std::ops::AddAssign;
 
 use indexmap::IndexSet;
@@ -207,6 +208,97 @@ impl TestAnalyticsWriter {
         }
 
         Ok(writer)
+    }
+
+    /// Does garbage collection by rewriting test records and throwing away those with expired data.
+    ///
+    /// This also makes sure that the data records are being truncated or extended to `num_days`.
+    /// In case no `num_days` adjustment is necessary, this will only rewrite all records when the number of expired records
+    /// exceeds `threshold`, which defaults to 25% of the records.
+    pub fn rewrite(
+        &mut self,
+        mut num_days: usize,
+        garbage_threshold: Option<usize>,
+    ) -> Result<bool, TestAnalyticsError> {
+        let needs_resize = num_days != self.num_days;
+        let threshold = garbage_threshold.unwrap_or(self.tests.len() / 4);
+        let record_liveness: Vec<_> = (0..self.tests.len())
+            .map(|idx| {
+                let data_idx = idx * self.num_days;
+                let today_offset = offset_from_today(self.last_timestamp[data_idx], self.timestamp);
+                today_offset >= 0 || (-today_offset as usize) < num_days
+            })
+            .collect();
+
+        let live_records = record_liveness.iter().filter(|live| **live).count();
+        let dead_records = self.tests.len() - live_records;
+
+        if !(needs_resize || dead_records > threshold) {
+            return Ok(false);
+        }
+
+        mem::swap(&mut num_days, &mut self.num_days);
+        let string_table = mem::take(&mut self.string_table);
+        let tests = mem::take(&mut self.tests);
+        let total_pass_count = mem::take(&mut self.total_pass_count);
+        let total_fail_count = mem::take(&mut self.total_fail_count);
+        let total_skip_count = mem::take(&mut self.total_skip_count);
+        let total_flaky_fail_count = mem::take(&mut self.total_flaky_fail_count);
+        let total_duration = mem::take(&mut self.total_duration);
+        let last_timestamp = mem::take(&mut self.last_timestamp);
+        let last_duration = mem::take(&mut self.last_duration);
+
+        let expected_size = live_records * self.num_days;
+        self.tests.reserve(live_records);
+        self.total_pass_count.reserve(expected_size);
+        self.total_fail_count.reserve(expected_size);
+        self.total_skip_count.reserve(expected_size);
+        self.total_flaky_fail_count.reserve(expected_size);
+        self.total_duration.reserve(expected_size);
+        self.last_timestamp.reserve(expected_size);
+        self.last_duration.reserve(expected_size);
+
+        for ((old_idx, test), record_live) in tests.iter().enumerate().zip(record_liveness) {
+            if !record_live {
+                continue;
+            }
+            let name = StringTable::read(string_table.as_bytes(), test.name_offset as usize)
+                .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference)?;
+
+            let name_offset = self.string_table.insert(name) as u32;
+            let (_new_idx, inserted) = self.tests.insert_full(raw::Test { name_offset });
+            assert!(inserted); // the records are already unique, and we re-insert those
+
+            let overlap_days = num_days.min(self.num_days);
+            let old_idx = old_idx * num_days;
+
+            let old_range = old_idx..old_idx + overlap_days;
+            self.total_pass_count
+                .extend_from_slice(&total_pass_count[old_range.clone()]);
+            self.total_fail_count
+                .extend_from_slice(&total_fail_count[old_range.clone()]);
+            self.total_skip_count
+                .extend_from_slice(&total_skip_count[old_range.clone()]);
+            self.total_flaky_fail_count
+                .extend_from_slice(&total_flaky_fail_count[old_range.clone()]);
+            self.total_duration
+                .extend_from_slice(&total_duration[old_range.clone()]);
+            self.last_timestamp
+                .extend_from_slice(&last_timestamp[old_range.clone()]);
+            self.last_duration
+                .extend_from_slice(&last_duration[old_range.clone()]);
+
+            let expected_size = self.tests.len() * self.num_days;
+            self.total_pass_count.resize(expected_size, 0);
+            self.total_fail_count.resize(expected_size, 0);
+            self.total_skip_count.resize(expected_size, 0);
+            self.total_flaky_fail_count.resize(expected_size, 0);
+            self.total_duration.resize(expected_size, 0.);
+            self.last_timestamp.resize(expected_size, 0);
+            self.last_duration.resize(expected_size, 0.);
+        }
+
+        Ok(true)
     }
 
     /// Writes the data for the given [`Testrun`](testrun::Testrun) into this aggregation.
