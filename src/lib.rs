@@ -1,11 +1,13 @@
 use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 
-mod binary;
+pub mod binary;
 mod compute_name;
 mod failure_message;
 mod junit;
 mod testrun;
+
+pub use testrun::{Framework, Outcome, Testrun};
 
 pyo3::create_exception!(test_results_parser, ParserError, PyException);
 pyo3::create_exception!(test_results_parser, ComputeNameError, PyException);

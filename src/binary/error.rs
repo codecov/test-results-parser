@@ -42,16 +42,6 @@ pub struct TestAnalyticsError {
 }
 
 impl TestAnalyticsError {
-    /// Creates a new [`TestAnalyticsError`] from a known kind of error as well as an
-    /// arbitrary error payload.
-    pub(crate) fn new<E>(kind: TestAnalyticsErrorKind, source: E) -> Self
-    where
-        E: Into<Box<dyn std::error::Error + Send + Sync>>,
-    {
-        let source = Some(source.into());
-        Self { kind, source }
-    }
-
     /// Returns the corresponding [`TestAnalyticsErrorKind`] for this error.
     pub fn kind(&self) -> TestAnalyticsErrorKind {
         self.kind

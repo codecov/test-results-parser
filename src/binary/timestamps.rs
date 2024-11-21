@@ -3,11 +3,6 @@ use std::ops::Range;
 /// Seconds in a day.
 pub const DAY: u32 = 24 * 60 * 60;
 
-/// Rounds the given unix-timestamp down to days.
-pub fn round_timestamp_to_day(timestamp: u32) -> u32 {
-    timestamp / DAY * DAY
-}
-
 /// Calculates the offset (in days / indices) between
 /// the "saved" timestamp vs "now".
 pub fn offset_from_today(timestamp_saved: u32, timestamp_now: u32) -> isize {
