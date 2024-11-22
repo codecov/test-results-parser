@@ -34,7 +34,9 @@ pub fn shift_data<T: Copy + Default>(data: &mut [T], mut today_offset: usize) {
 ///
 /// To give an example using calendar days, our data, offset, desired and resulting
 /// ranges may look like this:
-/// ```
+/// ```compile_fail
+/// # // ^ `compile_fail` because this is private :-(
+/// # use test_results_parser::binary::timestamps::adjust_selection_range;
 /// let data_range = 20..24; // representing data from 2024-11-20 to 2024-11-18
 /// // … | 2024-11-21 | 2024-11-20 | 2024-11-19 | 2024-11-18 | …
 /// //                ^- 20        |            |            ^- 23

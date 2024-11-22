@@ -37,7 +37,7 @@ mod tests {
 
     #[test]
     fn test_sizeof() {
-        assert_eq!(mem::size_of::<Header>(), 20);
+        assert_eq!(mem::size_of::<Header>(), 24);
         assert_eq!(mem::align_of::<Header>(), 4);
 
         assert_eq!(mem::size_of::<Test>(), 4);
