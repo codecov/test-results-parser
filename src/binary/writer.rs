@@ -58,18 +58,8 @@ impl TestAnalyticsWriter {
     ) -> Result<Self, TestAnalyticsError> {
         let tests = IndexSet::from_iter(data.tests.iter().cloned());
 
-        // TODO: I should really move this to `watto`
-        let mut string_table = StringTable::new();
-        let mut next_offset = 0;
-        while next_offset < data.string_bytes.len() {
-            let string = StringTable::read(data.string_bytes, next_offset)
-                .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference)?;
-            string_table.insert(string);
-            // TODO: this should really be `subslice_range` which is currently nightly-only
-            next_offset = unsafe { string.as_ptr().byte_offset_from(data.string_bytes.as_ptr()) }
-                as usize
-                + string.len();
-        }
+        let string_table = StringTable::from_bytes(data.string_bytes)
+            .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference)?;
 
         Ok(Self {
             timestamp,
