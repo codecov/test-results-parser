@@ -106,6 +106,15 @@ pub struct Test<'data, 'parsed> {
 }
 
 impl<'data, 'parsed> Test<'data, 'parsed> {
+    /// Returns the testsuite of the test.
+    pub fn testsuite(&self) -> Result<&'data str, TestAnalyticsError> {
+        watto::StringTable::read(
+            self.container.string_bytes,
+            self.data.testsuite_offset as usize,
+        )
+        .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference.into())
+    }
+
     /// Returns the name of the test.
     pub fn name(&self) -> Result<&'data str, TestAnalyticsError> {
         watto::StringTable::read(self.container.string_bytes, self.data.name_offset as usize)

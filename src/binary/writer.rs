@@ -75,11 +75,17 @@ impl TestAnalyticsWriter {
         writer.testdata.reserve(expected_reserve);
 
         for (smaller_idx, test) in smaller.tests.iter().enumerate() {
+            let testsuite = StringTable::read(smaller.string_bytes, test.testsuite_offset as usize)
+                .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference)?;
             let name = StringTable::read(smaller.string_bytes, test.name_offset as usize)
                 .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference)?;
 
+            let testsuite_offset = writer.string_table.insert(testsuite) as u32;
             let name_offset = writer.string_table.insert(name) as u32;
-            let (idx, inserted) = writer.tests.insert_full(raw::Test { name_offset });
+            let (idx, inserted) = writer.tests.insert_full(raw::Test {
+                testsuite_offset,
+                name_offset,
+            });
 
             let data_idx = idx * writer.num_days;
             let smaller_idx = smaller_idx * smaller.header.num_days as usize;
@@ -101,7 +107,7 @@ impl TestAnalyticsWriter {
                 let today_offset = offset_from_today(larger_timestamp, smaller_timestamp);
                 let range = data_idx..data_idx + writer.num_days;
 
-                shift_data(&mut writer.testdata[range.clone()], today_offset);
+                shift_data(&mut writer.testdata[range], today_offset);
 
                 let smaller_range = adjust_selection_range(
                     smaller_idx..smaller_idx + smaller.header.num_days as usize,
@@ -124,8 +130,8 @@ impl TestAnalyticsWriter {
             let idx_start = data_idx + today_offset;
             let larger_range = idx_start..idx_start + overlap_len;
 
-            let larger_data = &mut writer.testdata[larger_range.clone()];
-            let smaller_data = &smaller.testdata[smaller_range.clone()];
+            let larger_data = &mut writer.testdata[larger_range];
+            let smaller_data = &smaller.testdata[smaller_range];
 
             for (larger, smaller) in larger_data.iter_mut().zip(smaller_data) {
                 larger.total_pass_count += smaller.total_pass_count;
@@ -185,11 +191,19 @@ impl TestAnalyticsWriter {
             if !record_live {
                 continue;
             }
+
+            let testsuite =
+                StringTable::read(string_table.as_bytes(), test.testsuite_offset as usize)
+                    .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference)?;
             let name = StringTable::read(string_table.as_bytes(), test.name_offset as usize)
                 .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference)?;
 
+            let testsuite_offset = self.string_table.insert(testsuite) as u32;
             let name_offset = self.string_table.insert(name) as u32;
-            let (_new_idx, inserted) = self.tests.insert_full(raw::Test { name_offset });
+            let (_new_idx, inserted) = self.tests.insert_full(raw::Test {
+                testsuite_offset,
+                name_offset,
+            });
             assert!(inserted); // the records are already unique, and we re-insert those
 
             let overlap_days = num_days.min(self.num_days);
@@ -208,8 +222,12 @@ impl TestAnalyticsWriter {
 
     /// Writes the data for the given [`Testrun`](testrun::Testrun) into this aggregation.
     pub fn add_test_run(&mut self, test: &testrun::Testrun) {
+        let testsuite_offset = self.string_table.insert(&test.testsuite) as u32;
         let name_offset = self.string_table.insert(&test.name) as u32;
-        let (idx, inserted) = self.tests.insert_full(raw::Test { name_offset });
+        let (idx, inserted) = self.tests.insert_full(raw::Test {
+            testsuite_offset,
+            name_offset,
+        });
 
         let data_idx = idx * self.num_days;
         if inserted {

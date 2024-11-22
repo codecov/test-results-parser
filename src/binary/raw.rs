@@ -24,6 +24,8 @@ unsafe impl Pod for Header {}
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(C)]
 pub struct Test {
+    /// Offset of the Testsuite name within the string table.
+    pub testsuite_offset: u32,
     /// Offset of the Test name within the string table.
     pub name_offset: u32,
 }
@@ -54,7 +56,7 @@ mod tests {
         assert_eq!(mem::size_of::<Header>(), 24);
         assert_eq!(mem::align_of::<Header>(), 4);
 
-        assert_eq!(mem::size_of::<Test>(), 4);
+        assert_eq!(mem::size_of::<Test>(), 8);
         assert_eq!(mem::align_of::<Test>(), 4);
 
         assert_eq!(mem::size_of::<TestData>(), 20);

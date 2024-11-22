@@ -76,6 +76,43 @@ mod tests {
     }
 
     #[test]
+    fn test_testsuites() {
+        let mut test = Testrun {
+            name: "abc".into(),
+            classname: "".into(),
+            duration: 1.0,
+            outcome: Outcome::Pass,
+            testsuite: "".into(),
+            failure_message: None,
+            filename: None,
+            build_url: None,
+            computed_name: None,
+        };
+
+        let mut writer = TestAnalyticsWriter::new(2, 0);
+
+        writer.add_test_run(&test);
+        test.testsuite = "some testsuite".into();
+        writer.add_test_run(&test);
+
+        let mut buf = vec![];
+        writer.serialize(&mut buf).unwrap();
+
+        let parsed = TestAnalytics::parse(&buf, 0).unwrap();
+        let mut tests = parsed.tests();
+
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.testsuite().unwrap(), "");
+        assert_eq!(abc.name().unwrap(), "abc");
+
+        let abc_with_testsuite = tests.next().unwrap();
+        assert_eq!(abc_with_testsuite.testsuite().unwrap(), "some testsuite");
+        assert_eq!(abc_with_testsuite.name().unwrap(), "abc");
+
+        assert!(tests.next().is_none());
+    }
+
+    #[test]
     fn test_time_shift() {
         let test = Testrun {
             name: "abc".into(),
