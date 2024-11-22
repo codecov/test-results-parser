@@ -2,7 +2,7 @@ use std::fmt;
 use std::ops::Range;
 
 use timestamps::{adjust_selection_range, offset_from_today};
-use watto::{align_to, Pod};
+use watto::Pod;
 
 use super::*;
 
@@ -35,20 +35,14 @@ impl<'data> TestAnalytics<'data> {
             return Err(TestAnalyticsErrorKind::WrongVersion(header.version).into());
         }
 
-        let (_, rest) = align_to(rest, 8).ok_or(TestAnalyticsErrorKind::InvalidTables)?;
         let (tests, rest) = raw::Test::slice_from_prefix(rest, header.num_tests as usize)
             .ok_or(TestAnalyticsErrorKind::InvalidTables)?;
 
         let expected_data = header.num_tests as usize * header.num_days as usize;
 
-        let (_, rest) = align_to(rest, 8).ok_or(TestAnalyticsErrorKind::InvalidTables)?;
         let (testdata, rest) = raw::TestData::slice_from_prefix(rest, expected_data)
             .ok_or(TestAnalyticsErrorKind::InvalidTables)?;
 
-        let (_, rest) = align_to(rest, 8).ok_or(TestAnalyticsErrorKind::UnexpectedStringBytes {
-            expected: header.string_bytes as usize,
-            found: 0,
-        })?;
         let string_bytes = rest.get(..header.string_bytes as usize).ok_or(
             TestAnalyticsErrorKind::UnexpectedStringBytes {
                 expected: header.string_bytes as usize,

@@ -275,15 +275,12 @@ impl TestAnalyticsWriter {
         };
 
         writer.write_all(header.as_bytes())?;
-        writer.align_to(8)?;
 
         for test in self.tests.into_iter() {
             writer.write_all(test.as_bytes())?;
         }
-        writer.align_to(8)?;
 
         writer.write_all(self.testdata.as_bytes())?;
-        writer.align_to(8)?;
 
         writer.write_all(&string_bytes)?;
 

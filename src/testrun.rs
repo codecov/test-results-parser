@@ -77,6 +77,12 @@ pub fn check_testsuites_name(testsuites_name: &str) -> Option<Framework> {
         .next()
 }
 
+// testrun is unique on:
+// - testsuite
+// - classname
+// - name
+// the UI shows `computed_name`
+
 #[derive(Clone, Debug, PartialEq)]
 #[pyclass]
 pub struct Testrun {
