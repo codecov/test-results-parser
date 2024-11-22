@@ -62,7 +62,7 @@ impl TestAnalyticsWriter {
             .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference)?;
 
         Ok(Self {
-            timestamp,
+            timestamp: timestamp.max(data.timestamp),
             num_days: data.header.num_days as usize,
             tests,
             total_pass_count: data.total_pass_count.into(),
@@ -89,6 +89,7 @@ impl TestAnalyticsWriter {
             } else {
                 (a, b)
             };
+        let timestamp = timestamp.max(a.timestamp).max(b.timestamp);
 
         let mut writer = Self::from_existing_format(larger, timestamp)?;
 
@@ -116,7 +117,7 @@ impl TestAnalyticsWriter {
             let smaller_idx = smaller_idx * smaller.header.num_days as usize;
             let smaller_timestamp = smaller.last_timestamp[smaller_idx];
 
-            let last_timestamp = if inserted {
+            let larger_timestamp = if inserted {
                 let expected_size = writer.tests.len() * writer.num_days;
                 writer.total_pass_count.resize(expected_size, 0);
                 writer.total_fail_count.resize(expected_size, 0);
@@ -132,16 +133,11 @@ impl TestAnalyticsWriter {
                 writer.last_timestamp[data_idx]
             };
 
-            let today_offset = offset_from_today(last_timestamp, smaller_timestamp);
-            let smaller_range = adjust_selection_range(
-                smaller_idx..smaller_idx + smaller.header.num_days as usize,
-                0..writer.num_days,
-                -today_offset.abs(),
-            );
-            let overlap_len = smaller_range.end - smaller_range.start;
-            // smaller has more recent data buckets, so we shift things around:
-            let larger_range = if today_offset < 0 {
+            let (smaller_range, today_offset) = if smaller_timestamp > larger_timestamp {
+                // smaller has more recent data buckets, so we shift things around:
+                let today_offset = offset_from_today(larger_timestamp, smaller_timestamp);
                 let range = data_idx..data_idx + writer.num_days;
+
                 shift_data(&mut writer.total_pass_count[range.clone()], today_offset);
                 shift_data(&mut writer.total_fail_count[range.clone()], today_offset);
                 shift_data(&mut writer.total_skip_count[range.clone()], today_offset);
@@ -153,11 +149,26 @@ impl TestAnalyticsWriter {
                 shift_data(&mut writer.last_timestamp[range.clone()], today_offset);
                 shift_data(&mut writer.last_duration[range.clone()], today_offset);
 
-                data_idx..data_idx + overlap_len
+                let smaller_range = adjust_selection_range(
+                    smaller_idx..smaller_idx + smaller.header.num_days as usize,
+                    0..writer.num_days,
+                    today_offset,
+                );
+                (smaller_range, 0)
             } else {
-                let idx_start = data_idx + today_offset as usize;
-                idx_start..idx_start + overlap_len
+                let today_offset = offset_from_today(smaller_timestamp, larger_timestamp);
+                let smaller_range = adjust_selection_range(
+                    smaller_idx..smaller_idx + smaller.header.num_days as usize,
+                    0..writer.num_days,
+                    today_offset,
+                );
+
+                (smaller_range, today_offset)
             };
+
+            let overlap_len = smaller_range.end - smaller_range.start;
+            let idx_start = data_idx + today_offset;
+            let larger_range = idx_start..idx_start + overlap_len;
 
             add_assign_slice(
                 &mut writer.total_pass_count[larger_range.clone()],
@@ -216,7 +227,7 @@ impl TestAnalyticsWriter {
             .map(|idx| {
                 let data_idx = idx * self.num_days;
                 let today_offset = offset_from_today(self.last_timestamp[data_idx], self.timestamp);
-                today_offset >= 0 || (-today_offset as usize) < num_days
+                today_offset < num_days
             })
             .collect();
 
@@ -349,6 +360,7 @@ impl TestAnalyticsWriter {
         let header = raw::Header {
             magic: raw::TA_MAGIC,
             version: super::format::TA_VERSION,
+            timestamp: self.timestamp,
 
             num_days: self.num_days as u32,
             num_tests: self.tests.len() as u32,

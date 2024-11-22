@@ -10,6 +10,8 @@ pub struct Header {
     pub magic: u32,
     /// The file format version.
     pub version: u32,
+    /// Timestamp when the file was last touched.
+    pub timestamp: u32,
     /// Number of tests within the file.
     pub num_tests: u32,
     /// Number of days worth of aggregated data.

@@ -92,7 +92,7 @@ impl<'data> TestAnalytics<'data> {
         Ok(Self {
             header,
             tests,
-            timestamp,
+            timestamp: timestamp.max(header.timestamp),
 
             total_pass_count,
             total_fail_count,
@@ -140,7 +140,7 @@ impl<'data> fmt::Debug for TestAnalytics<'data> {
 /// This represents a specific test for which test analytics data is gathered.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Test<'data, 'parsed> {
-    today_offset: isize,
+    today_offset: usize,
     container: &'parsed TestAnalytics<'data>,
 
     data: &'data raw::Test,

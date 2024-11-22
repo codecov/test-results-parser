@@ -5,23 +5,24 @@ pub const DAY: u32 = 24 * 60 * 60;
 
 /// Calculates the offset (in days / indices) between
 /// the "saved" timestamp vs "now".
-pub fn offset_from_today(timestamp_saved: u32, timestamp_now: u32) -> isize {
+pub fn offset_from_today(timestamp_saved: u32, timestamp_now: u32) -> usize {
     let days_saved = timestamp_saved / DAY;
     let days_now = timestamp_now / DAY;
 
-    days_saved as isize - days_now as isize
+    days_now as usize - days_saved as usize
 }
 
 /// Possibly shifts `data` according to `today_offset`.
-pub fn shift_data<T: Copy + Default>(data: &mut [T], today_offset: isize) {
+pub fn shift_data<T: Copy + Default>(data: &mut [T], mut today_offset: usize) {
     if today_offset == 0 {
         return;
     }
+    today_offset = today_offset.min(data.len());
 
-    let slice_end = data.len().saturating_add_signed(today_offset);
-    let slice_begin = -today_offset as usize;
-    data.copy_within(0..slice_end, slice_begin);
-    let begin = &mut data[0..slice_begin];
+    let slice_end = data.len() - today_offset;
+    data.copy_within(0..slice_end, today_offset);
+
+    let begin = &mut data[0..today_offset];
     begin.fill_with(Default::default);
 }
 
@@ -35,33 +36,33 @@ pub fn shift_data<T: Copy + Default>(data: &mut [T], today_offset: isize) {
 /// ranges may look like this:
 /// ```
 /// let data_range = 20..24; // representing data from 2024-11-20 to 2024-11-18
-/// // … | 2024-11-20 | 2024-11-20 | 2024-11-19 | 2024-11-18 | …
+/// // … | 2024-11-21 | 2024-11-20 | 2024-11-19 | 2024-11-18 | …
 /// //                ^- 20        |            |            ^- 23
 ///
-/// let today_offset = -1;
-/// // … | 2024-11-20 | …
+/// let today_offset = 1;
+/// // … | 2024-11-21 | …
 /// //   ^ today
 ///
 /// let desired_range = 0..2; // today and yesterday
 ///
 /// let resulting_range = adjust_selection_range(data_range, desired_range, today_offset);
 /// assert_eq!(resulting_range, 20..21);
-/// // … | 2024-11-20 | 2024-11-20 | …
+/// // … | 2024-11-21 | 2024-11-20 | …
 /// //                ^- 20        ^- 21
 /// ```
 pub fn adjust_selection_range(
     data_range: Range<usize>,
     desired_range: Range<usize>,
-    today_offset: isize,
+    today_offset: usize,
 ) -> Range<usize> {
     let range_start = data_range
         .start
         .saturating_add(desired_range.start)
-        .saturating_add_signed(today_offset);
+        .saturating_sub(today_offset);
     let range_end = data_range
         .start
         .saturating_add(desired_range.end)
-        .saturating_add_signed(today_offset);
+        .saturating_sub(today_offset);
     let range_start = range_start.max(data_range.start);
     let range_end = range_end.min(data_range.end);
     range_start..range_end
@@ -74,13 +75,10 @@ mod tests {
     #[test]
     fn test_day_offsets() {
         let offset = offset_from_today(0, 1 * DAY);
-        assert_eq!(offset, -1);
+        assert_eq!(offset, 1);
 
         let offset = offset_from_today(0, 7 * DAY);
-        assert_eq!(offset, -7);
-
-        let offset = offset_from_today(2 * DAY, 1 * DAY);
-        assert_eq!(offset, 1);
+        assert_eq!(offset, 7);
     }
 
     #[test]
@@ -91,11 +89,8 @@ mod tests {
         let range = adjust_selection_range(0..7, 0..60, 0);
         assert_eq!(range, 0..7);
 
-        let range = adjust_selection_range(20..28, 0..60, -2);
+        let range = adjust_selection_range(20..28, 0..60, 2);
         assert_eq!(range, 20..28);
-
-        let range = adjust_selection_range(20..80, 0..7, 1);
-        assert_eq!(range, 21..28);
     }
 
     #[test]
@@ -104,7 +99,7 @@ mod tests {
         shift_data(&mut data, 0);
         assert_eq!(&data, &[1, 2, 3]);
 
-        shift_data(&mut data, -1);
+        shift_data(&mut data, 1);
         assert_eq!(&data, &[0, 1, 2]);
     }
 }
