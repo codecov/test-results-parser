@@ -29,6 +29,20 @@ pub struct Test {
 }
 unsafe impl Pod for Test {}
 
+#[derive(Debug, Clone, Copy, Default)]
+#[repr(C)]
+pub struct TestData {
+    pub last_timestamp: u32,
+    pub last_duration: f32,
+
+    pub total_pass_count: u16,
+    pub total_fail_count: u16,
+    pub total_skip_count: u16,
+    pub total_flaky_fail_count: u16,
+    pub total_duration: f32,
+}
+unsafe impl Pod for TestData {}
+
 #[cfg(test)]
 mod tests {
     use std::mem;
@@ -42,5 +56,8 @@ mod tests {
 
         assert_eq!(mem::size_of::<Test>(), 4);
         assert_eq!(mem::align_of::<Test>(), 4);
+
+        assert_eq!(mem::size_of::<TestData>(), 20);
+        assert_eq!(mem::align_of::<TestData>(), 4);
     }
 }

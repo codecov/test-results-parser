@@ -12,21 +12,12 @@ pub(crate) const TA_VERSION: u32 = 1;
 /// The serialized [`TestAnalytics`] binary format.
 ///
 /// This can be parsed from a binary buffer via [`TestAnalytics::parse`].
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct TestAnalytics<'data> {
+    pub(crate) timestamp: u32,
     pub(crate) header: &'data raw::Header,
     pub(crate) tests: &'data [raw::Test],
-    pub(crate) timestamp: u32,
-
-    pub(crate) total_pass_count: &'data [u16],
-    pub(crate) total_fail_count: &'data [u16],
-    pub(crate) total_skip_count: &'data [u16],
-    pub(crate) total_flaky_fail_count: &'data [u16],
-    pub(crate) total_duration: &'data [f32],
-
-    pub(crate) last_timestamp: &'data [u32],
-    pub(crate) last_duration: &'data [f32],
-
+    pub(crate) testdata: &'data [raw::TestData],
     pub(crate) string_bytes: &'data [u8],
 }
 
@@ -51,31 +42,7 @@ impl<'data> TestAnalytics<'data> {
         let expected_data = header.num_tests as usize * header.num_days as usize;
 
         let (_, rest) = align_to(rest, 8).ok_or(TestAnalyticsErrorKind::InvalidTables)?;
-        let (total_pass_count, rest) = u16::slice_from_prefix(rest, expected_data)
-            .ok_or(TestAnalyticsErrorKind::InvalidTables)?;
-
-        let (_, rest) = align_to(rest, 8).ok_or(TestAnalyticsErrorKind::InvalidTables)?;
-        let (total_fail_count, rest) = u16::slice_from_prefix(rest, expected_data)
-            .ok_or(TestAnalyticsErrorKind::InvalidTables)?;
-
-        let (_, rest) = align_to(rest, 8).ok_or(TestAnalyticsErrorKind::InvalidTables)?;
-        let (total_skip_count, rest) = u16::slice_from_prefix(rest, expected_data)
-            .ok_or(TestAnalyticsErrorKind::InvalidTables)?;
-
-        let (_, rest) = align_to(rest, 8).ok_or(TestAnalyticsErrorKind::InvalidTables)?;
-        let (total_flaky_fail_count, rest) = u16::slice_from_prefix(rest, expected_data)
-            .ok_or(TestAnalyticsErrorKind::InvalidTables)?;
-
-        let (_, rest) = align_to(rest, 8).ok_or(TestAnalyticsErrorKind::InvalidTables)?;
-        let (total_duration, rest) = f32::slice_from_prefix(rest, expected_data)
-            .ok_or(TestAnalyticsErrorKind::InvalidTables)?;
-
-        let (_, rest) = align_to(rest, 8).ok_or(TestAnalyticsErrorKind::InvalidTables)?;
-        let (last_timestamp, rest) = u32::slice_from_prefix(rest, expected_data)
-            .ok_or(TestAnalyticsErrorKind::InvalidTables)?;
-
-        let (_, rest) = align_to(rest, 8).ok_or(TestAnalyticsErrorKind::InvalidTables)?;
-        let (last_duration, rest) = f32::slice_from_prefix(rest, expected_data)
+        let (testdata, rest) = raw::TestData::slice_from_prefix(rest, expected_data)
             .ok_or(TestAnalyticsErrorKind::InvalidTables)?;
 
         let (_, rest) = align_to(rest, 8).ok_or(TestAnalyticsErrorKind::UnexpectedStringBytes {
@@ -90,19 +57,10 @@ impl<'data> TestAnalytics<'data> {
         )?;
 
         Ok(Self {
+            timestamp: timestamp.max(header.timestamp),
             header,
             tests,
-            timestamp: timestamp.max(header.timestamp),
-
-            total_pass_count,
-            total_fail_count,
-            total_skip_count,
-            total_flaky_fail_count,
-            total_duration,
-
-            last_timestamp,
-            last_duration,
-
+            testdata,
             string_bytes,
         })
     }
@@ -112,7 +70,7 @@ impl<'data> TestAnalytics<'data> {
         let num_days = self.header.num_days as usize;
         self.tests.iter().enumerate().map(move |(i, test)| {
             let start_idx = i * num_days;
-            let latest_test_timestamp = self.last_timestamp[start_idx];
+            let latest_test_timestamp = self.testdata[start_idx].last_timestamp;
             let today_offset = offset_from_today(latest_test_timestamp, self.timestamp);
 
             let data_range = start_idx..start_idx + num_days;
@@ -138,7 +96,7 @@ impl<'data> fmt::Debug for TestAnalytics<'data> {
 }
 
 /// This represents a specific test for which test analytics data is gathered.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Test<'data, 'parsed> {
     today_offset: usize,
     container: &'parsed TestAnalytics<'data>,
@@ -159,26 +117,18 @@ impl<'data, 'parsed> Test<'data, 'parsed> {
         let adjusted_range =
             adjust_selection_range(self.data_range.clone(), desired_range, self.today_offset);
 
-        let total_pass_count = self.container.total_pass_count[adjusted_range.clone()]
-            .iter()
-            .map(|c| *c as u32)
-            .sum();
-        let total_fail_count = self.container.total_fail_count[adjusted_range.clone()]
-            .iter()
-            .map(|c| *c as u32)
-            .sum();
-        let total_skip_count = self.container.total_skip_count[adjusted_range.clone()]
-            .iter()
-            .map(|c| *c as u32)
-            .sum();
-        let total_flaky_fail_count = self.container.total_flaky_fail_count[adjusted_range.clone()]
-            .iter()
-            .map(|c| *c as u32)
-            .sum();
-        let total_duration: f64 = self.container.total_duration[adjusted_range.clone()]
-            .iter()
-            .map(|d| *d as f64)
-            .sum();
+        let mut total_pass_count = 0;
+        let mut total_fail_count = 0;
+        let mut total_skip_count = 0;
+        let mut total_flaky_fail_count = 0;
+        let mut total_duration = 0.;
+        for testdata in &self.container.testdata[adjusted_range] {
+            total_pass_count += testdata.total_pass_count as u32;
+            total_fail_count += testdata.total_fail_count as u32;
+            total_skip_count += testdata.total_skip_count as u32;
+            total_flaky_fail_count += testdata.total_flaky_fail_count as u32;
+            total_duration += testdata.total_duration as f64;
+        }
 
         let total_run_count = total_pass_count + total_fail_count;
         let (failure_rate, flake_rate, avg_duration) = if total_run_count > 0 {
