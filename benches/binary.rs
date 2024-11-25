@@ -3,6 +3,7 @@ use std::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::distributions::{Alphanumeric, DistString, Distribution, Uniform, WeightedIndex};
 use rand::rngs::SmallRng;
+use rand::seq::SliceRandom as _;
 use rand::{Rng, SeedableRng};
 use test_results_parser::binary::*;
 use test_results_parser::{Outcome, Testrun};
@@ -108,13 +109,43 @@ fn write_tests(tests: &[Testrun], num_days: usize, timestamp: u32) -> Vec<u8> {
     buf
 }
 
-fn create_random_testcases(rand: &mut impl Rng, num_tests: usize) -> Vec<Testrun> {
+struct Upload {
+    flags: Vec<String>,
+    tests: Vec<Testrun>,
+}
+
+/// Generates a random set of `num_flags` flags.
+fn create_random_flags(rng: &mut impl Rng, num_flags: usize) -> Vec<String> {
+    let flag_lens = Uniform::from(5usize..10);
+    (0..num_flags)
+        .map(|_| {
+            let flag_len = flag_lens.sample(rng);
+            Alphanumeric.sample_string(rng, flag_len)
+        })
+        .collect()
+}
+
+/// Samples random combinations of flags with length `max_flags_in_set`.
+fn sample_flag_sets<'a>(
+    rng: &'a mut impl Rng,
+    flags: &'a [String],
+    max_flags_in_set: usize,
+) -> impl Iterator<Item = Vec<String>> + 'a {
+    let num_flags = Uniform::from(0..max_flags_in_set);
+    std::iter::from_fn(move || {
+        let num_flags = num_flags.sample(rng);
+        let flags: Vec<_> = flags.choose_multiple(rng, num_flags).cloned().collect();
+        Some(flags)
+    })
+}
+
+fn create_random_testcases(rng: &mut impl Rng, num_tests: usize) -> Vec<Testrun> {
     let name_lens = Uniform::from(5usize..50);
 
     (0..num_tests)
         .map(|_| {
-            let name_len = name_lens.sample(rand);
-            let name = Alphanumeric.sample_string(rand, name_len);
+            let name_len = name_lens.sample(rng);
+            let name = Alphanumeric.sample_string(rng, name_len);
 
             Testrun {
                 name,
@@ -131,13 +162,13 @@ fn create_random_testcases(rand: &mut impl Rng, num_tests: usize) -> Vec<Testrun
         .collect()
 }
 
-fn randomize_test_data(rand: &mut impl Rng, tests: &mut [Testrun]) {
+fn randomize_test_data(rng: &mut impl Rng, tests: &mut [Testrun]) {
     let durations = Uniform::from(0f64..10f64);
     let outcomes = WeightedIndex::new([1000, 10, 20]).unwrap();
 
     for test in tests {
-        test.duration = durations.sample(rand);
-        test.outcome = match outcomes.sample(rand) {
+        test.duration = durations.sample(rng);
+        test.outcome = match outcomes.sample(rng) {
             0 => Outcome::Pass,
             1 => Outcome::Skip,
             _ => Outcome::Failure,
