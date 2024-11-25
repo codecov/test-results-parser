@@ -1,6 +1,7 @@
 use std::fmt;
 use std::ops::Range;
 
+use flagsset::FlagsSet;
 use timestamps::{adjust_selection_range, offset_from_today};
 use watto::Pod;
 
@@ -15,10 +16,14 @@ pub(crate) const TA_VERSION: u32 = 1;
 #[derive(Clone)]
 pub struct TestAnalytics<'data> {
     pub(crate) timestamp: u32,
+
     pub(crate) header: &'data raw::Header,
+
+    pub(crate) string_bytes: &'data [u8],
+    pub(crate) flags_set: FlagsSet<'data>,
+
     pub(crate) tests: &'data [raw::Test],
     pub(crate) testdata: &'data [raw::TestData],
-    pub(crate) string_bytes: &'data [u8],
 }
 
 impl<'data> TestAnalytics<'data> {
@@ -43,6 +48,9 @@ impl<'data> TestAnalytics<'data> {
         let (testdata, rest) = raw::TestData::slice_from_prefix(rest, expected_data)
             .ok_or(TestAnalyticsErrorKind::InvalidTables)?;
 
+        let (flags_set, rest) = u32::slice_from_prefix(rest, header.flags_set_len as usize)
+            .ok_or(TestAnalyticsErrorKind::InvalidTables)?;
+
         let string_bytes = rest.get(..header.string_bytes as usize).ok_or(
             TestAnalyticsErrorKind::UnexpectedStringBytes {
                 expected: header.string_bytes as usize,
@@ -50,12 +58,18 @@ impl<'data> TestAnalytics<'data> {
             },
         )?;
 
+        let flags_set = FlagsSet::load(string_bytes, flags_set)?;
+
         Ok(Self {
             timestamp: timestamp.max(header.timestamp),
+
             header,
+
+            string_bytes,
+            flags_set,
+
             tests,
             testdata,
-            string_bytes,
         })
     }
 

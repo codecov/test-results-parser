@@ -30,6 +30,9 @@ pub enum TestAnalyticsErrorKind {
     /// The string reference was invalid
     #[error("could not resolve string reference")]
     InvalidStringReference,
+    /// The flag set reference was invalid
+    #[error("could not resolve flag set reference")]
+    InvalidFlagSetReference,
 }
 
 /// An error encountered during [`TestAnalytics`] creation or parsing.

@@ -45,9 +45,10 @@ fn binary(c: &mut Criterion) {
         .bench_function("update_same", |b| {
             b.iter(|| {
                 let parsed = TestAnalytics::parse(&buf, 1).unwrap();
-                let mut writer = TestAnalyticsWriter::from_existing_format(&parsed, 1).unwrap();
+                let mut writer = TestAnalyticsWriter::from_existing_format(&parsed).unwrap();
+                let mut session = writer.start_session(1, &[]);
                 for test in &tests {
-                    writer.add_test_run(test);
+                    session.insert(test);
                 }
 
                 let mut buf = vec![];
@@ -58,10 +59,10 @@ fn binary(c: &mut Criterion) {
         .bench_function("update_different", |b| {
             b.iter(|| {
                 let parsed = TestAnalytics::parse(&buf_1, 1 * DAY).unwrap();
-                let mut writer =
-                    TestAnalyticsWriter::from_existing_format(&parsed, 1 * DAY).unwrap();
+                let mut writer = TestAnalyticsWriter::from_existing_format(&parsed).unwrap();
+                let mut session = writer.start_session(1 * DAY, &[]);
                 for test in &tests[NON_OVERLAP..] {
-                    writer.add_test_run(test);
+                    session.insert(test);
                 }
 
                 let mut buf = vec![];
@@ -73,7 +74,7 @@ fn binary(c: &mut Criterion) {
             b.iter(|| {
                 let parsed_1 = TestAnalytics::parse(&buf_1, 1 * DAY).unwrap();
                 let parsed_2 = TestAnalytics::parse(&buf_2, 1 * DAY).unwrap();
-                let writer = TestAnalyticsWriter::merge(&parsed_1, &parsed_2, 1 * DAY).unwrap();
+                let writer = TestAnalyticsWriter::merge(&parsed_1, &parsed_2).unwrap();
 
                 let mut buf = vec![];
                 writer.serialize(&mut buf).unwrap();
@@ -84,9 +85,9 @@ fn binary(c: &mut Criterion) {
             b.iter(|| {
                 let parsed_1 = TestAnalytics::parse(&buf_1, 1 * DAY).unwrap();
                 let parsed_2 = TestAnalytics::parse(&buf_2, 1 * DAY).unwrap();
-                let mut writer = TestAnalyticsWriter::merge(&parsed_1, &parsed_2, 1 * DAY).unwrap();
+                let mut writer = TestAnalyticsWriter::merge(&parsed_1, &parsed_2).unwrap();
 
-                writer.rewrite(60, Some(0)).unwrap();
+                writer.rewrite(60, 1 * DAY, Some(0)).unwrap();
 
                 let mut buf = vec![];
                 writer.serialize(&mut buf).unwrap();
@@ -96,9 +97,10 @@ fn binary(c: &mut Criterion) {
 }
 
 fn write_tests(tests: &[Testrun], num_days: usize, timestamp: u32) -> Vec<u8> {
-    let mut writer = TestAnalyticsWriter::new(num_days, timestamp);
+    let mut writer = TestAnalyticsWriter::new(num_days);
+    let mut session = writer.start_session(timestamp, &[]);
     for test in tests {
-        writer.add_test_run(test);
+        session.insert(test);
     }
 
     let mut buf = vec![];

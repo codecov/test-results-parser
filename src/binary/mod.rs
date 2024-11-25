@@ -1,4 +1,5 @@
 mod error;
+mod flagsset;
 mod format;
 mod raw;
 mod timestamps;
@@ -18,7 +19,7 @@ mod tests {
 
     #[test]
     fn test_empty() {
-        let writer = TestAnalyticsWriter::new(60, 0);
+        let writer = TestAnalyticsWriter::new(60);
 
         let mut buf = vec![];
         writer.serialize(&mut buf).unwrap();
@@ -41,18 +42,19 @@ mod tests {
             computed_name: None,
         };
 
-        let mut writer = TestAnalyticsWriter::new(2, 0);
+        let mut writer = TestAnalyticsWriter::new(2);
+        let mut session = writer.start_session(0, &[]);
 
-        writer.add_test_run(&test);
+        session.insert(&test);
 
         test.outcome = Outcome::Failure;
         test.duration = 2.0;
-        writer.add_test_run(&test);
+        session.insert(&test);
 
         test.name = "def".into();
         test.outcome = Outcome::Skip;
         test.duration = 0.0;
-        writer.add_test_run(&test);
+        session.insert(&test);
 
         let mut buf = vec![];
         writer.serialize(&mut buf).unwrap();
@@ -89,11 +91,12 @@ mod tests {
             computed_name: None,
         };
 
-        let mut writer = TestAnalyticsWriter::new(2, 0);
+        let mut writer = TestAnalyticsWriter::new(2);
+        let mut session = writer.start_session(0, &[]);
 
-        writer.add_test_run(&test);
+        session.insert(&test);
         test.testsuite = "some testsuite".into();
-        writer.add_test_run(&test);
+        session.insert(&test);
 
         let mut buf = vec![];
         writer.serialize(&mut buf).unwrap();
@@ -126,9 +129,10 @@ mod tests {
             computed_name: None,
         };
 
-        let mut writer = TestAnalyticsWriter::new(2, 0);
+        let mut writer = TestAnalyticsWriter::new(2);
+        let mut session = writer.start_session(0, &[]);
 
-        writer.add_test_run(&test);
+        session.insert(&test);
 
         let mut buf = vec![];
         writer.serialize(&mut buf).unwrap();
@@ -179,17 +183,19 @@ mod tests {
             computed_name: None,
         };
 
-        let mut writer = TestAnalyticsWriter::new(2, 0);
+        let mut writer = TestAnalyticsWriter::new(2);
+        let mut session = writer.start_session(0, &[]);
 
-        writer.add_test_run(&test);
+        session.insert(&test);
 
         let mut buf = vec![];
         writer.serialize(&mut buf).unwrap();
 
         let parsed = TestAnalytics::parse(&buf, 1 * DAY).unwrap();
-        let mut writer = TestAnalyticsWriter::from_existing_format(&parsed, 1 * DAY).unwrap();
+        let mut writer = TestAnalyticsWriter::from_existing_format(&parsed).unwrap();
+        let mut session = writer.start_session(1 * DAY, &[]);
 
-        writer.add_test_run(&test);
+        session.insert(&test);
 
         let mut buf = vec![];
         writer.serialize(&mut buf).unwrap();
@@ -227,21 +233,23 @@ mod tests {
             computed_name: None,
         };
 
-        let mut writer = TestAnalyticsWriter::new(2, 0);
-        writer.add_test_run(&test);
+        let mut writer = TestAnalyticsWriter::new(2);
+        let mut session = writer.start_session(0, &[]);
+        session.insert(&test);
         let mut buf_1 = vec![];
         writer.serialize(&mut buf_1).unwrap();
 
-        let mut writer = TestAnalyticsWriter::new(2, 1 * DAY);
-        writer.add_test_run(&test);
+        let mut writer = TestAnalyticsWriter::new(2);
+        let mut session = writer.start_session(1 * DAY, &[]);
+        session.insert(&test);
         let mut buf_2 = vec![];
         writer.serialize(&mut buf_2).unwrap();
 
         let parsed_1 = TestAnalytics::parse(&buf_1, 1 * DAY).unwrap();
         let parsed_2 = TestAnalytics::parse(&buf_2, 1 * DAY).unwrap();
 
-        let merged_12 = TestAnalyticsWriter::merge(&parsed_1, &parsed_2, 1 * DAY).unwrap();
-        let merged_21 = TestAnalyticsWriter::merge(&parsed_2, &parsed_1, 1 * DAY).unwrap();
+        let merged_12 = TestAnalyticsWriter::merge(&parsed_1, &parsed_2).unwrap();
+        let merged_21 = TestAnalyticsWriter::merge(&parsed_2, &parsed_1).unwrap();
 
         let mut buf_12 = vec![];
         merged_12.serialize(&mut buf_12).unwrap();
@@ -283,20 +291,21 @@ mod tests {
             computed_name: None,
         };
 
-        let mut writer = TestAnalyticsWriter::new(2, 0);
+        let mut writer = TestAnalyticsWriter::new(2);
+        let mut session = writer.start_session(0, &[]);
 
-        writer.add_test_run(&test);
+        session.insert(&test);
 
         let mut buf = vec![];
         writer.serialize(&mut buf).unwrap();
 
         let parsed = TestAnalytics::parse(&buf, 1 * DAY).unwrap();
-        let mut writer = TestAnalyticsWriter::from_existing_format(&parsed, 1 * DAY).unwrap();
+        let mut writer = TestAnalyticsWriter::from_existing_format(&parsed).unwrap();
 
-        let was_rewritten = writer.rewrite(2, Some(0)).unwrap();
+        let was_rewritten = writer.rewrite(2, 1 * DAY, Some(0)).unwrap();
         assert!(!was_rewritten);
 
-        let was_rewritten = writer.rewrite(7, Some(0)).unwrap();
+        let was_rewritten = writer.rewrite(7, 1 * DAY, Some(0)).unwrap();
         assert!(was_rewritten);
 
         let mut buf = vec![];
@@ -316,9 +325,9 @@ mod tests {
 
         assert!(tests.next().is_none());
 
-        let mut writer = TestAnalyticsWriter::from_existing_format(&parsed, 3 * DAY).unwrap();
+        let mut writer = TestAnalyticsWriter::from_existing_format(&parsed).unwrap();
 
-        let was_rewritten = writer.rewrite(2, Some(0)).unwrap();
+        let was_rewritten = writer.rewrite(2, 3 * DAY, Some(0)).unwrap();
         assert!(was_rewritten);
 
         let mut buf = vec![];
@@ -328,6 +337,43 @@ mod tests {
         let mut tests = parsed.tests();
 
         // the test was garbage collected
+        assert!(tests.next().is_none());
+    }
+
+    #[test]
+    fn test_flags() {
+        let test = Testrun {
+            name: "abc".into(),
+            classname: "".into(),
+            duration: 1.0,
+            outcome: Outcome::Pass,
+            testsuite: "".into(),
+            failure_message: None,
+            filename: None,
+            build_url: None,
+            computed_name: None,
+        };
+
+        let mut writer = TestAnalyticsWriter::new(2);
+
+        let mut session = writer.start_session(0, &["flag-a"]);
+        session.insert(&test);
+        let mut session = writer.start_session(0, &["flag-b"]);
+        session.insert(&test);
+
+        let mut buf = vec![];
+        writer.serialize(&mut buf).unwrap();
+
+        let parsed = TestAnalytics::parse(&buf, 1 * DAY).unwrap();
+        let mut tests = parsed.tests();
+
+        // we get the test twice, with two different flags
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "abc");
+
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "abc");
+
         assert!(tests.next().is_none());
     }
 }

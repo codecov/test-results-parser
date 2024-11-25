@@ -16,6 +16,8 @@ pub struct Header {
     pub num_tests: u32,
     /// Number of days worth of aggregated data.
     pub num_days: u32,
+    /// Length of the `FlagsSet` table.
+    pub flags_set_len: u32,
     /// Length of the string table.
     pub string_bytes: u32,
 }
@@ -28,6 +30,8 @@ pub struct Test {
     pub testsuite_offset: u32,
     /// Offset of the Test name within the string table.
     pub name_offset: u32,
+
+    pub flag_set_offset: u32,
 }
 unsafe impl Pod for Test {}
 
@@ -53,7 +57,7 @@ mod tests {
 
     #[test]
     fn test_sizeof() {
-        assert_eq!(mem::size_of::<Header>(), 24);
+        assert_eq!(mem::size_of::<Header>(), 28);
         assert_eq!(mem::align_of::<Header>(), 4);
 
         assert_eq!(mem::size_of::<Test>(), 8);

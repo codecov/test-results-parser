@@ -1,6 +1,8 @@
+use std::collections::{hash_map, HashMap};
 use std::io::Write;
 use std::mem;
 
+use flagsset::FlagsSet;
 use indexmap::IndexSet;
 use raw::TestData;
 use timestamps::{adjust_selection_range, offset_from_today, shift_data};
@@ -10,53 +12,117 @@ use crate::testrun;
 
 use super::*;
 
+pub struct InsertSession<'writer> {
+    writer: &'writer mut TestAnalyticsWriter,
+
+    flag_set_offset: u32,
+}
+
+impl<'writer> InsertSession<'writer> {
+    /// Writes the data for the given [`Testrun`](testrun::Testrun) into the
+    /// underlying [`TestAnalyticsWriter`].
+    pub fn insert(&mut self, test: &testrun::Testrun) {
+        let testsuite_offset = self.writer.string_table.insert(&test.testsuite) as u32;
+        let name_offset = self.writer.string_table.insert(&test.name) as u32;
+        let (idx, inserted) = self.writer.tests.insert_full(raw::Test {
+            testsuite_offset,
+            name_offset,
+            flag_set_offset: self.flag_set_offset,
+        });
+
+        let data_idx = idx * self.writer.num_days;
+        if inserted {
+            let expected_size = self.writer.tests.len() * self.writer.num_days;
+            self.writer
+                .testdata
+                .resize_with(expected_size, TestData::default);
+        } else {
+            let range = data_idx..data_idx + self.writer.num_days;
+            let test_timestamp = self.writer.testdata[data_idx].last_timestamp;
+            let today_offset = offset_from_today(test_timestamp, self.writer.timestamp);
+            shift_data(&mut self.writer.testdata[range.clone()], today_offset);
+        }
+
+        let testdata = &mut self.writer.testdata[data_idx];
+        testdata.total_duration += test.duration as f32;
+
+        if testdata.last_timestamp <= self.writer.timestamp {
+            testdata.last_timestamp = self.writer.timestamp;
+            testdata.last_duration = test.duration as f32;
+        }
+
+        match test.outcome {
+            testrun::Outcome::Pass => testdata.total_pass_count += 1,
+            testrun::Outcome::Error | testrun::Outcome::Failure => testdata.total_fail_count += 1,
+            testrun::Outcome::Skip => testdata.total_skip_count += 1,
+        }
+    }
+}
+
 /// The [`TestAnalytics`] File Writer.
 #[derive(Debug)]
 pub struct TestAnalyticsWriter {
-    timestamp: u32,
     num_days: usize,
+
+    string_table: StringTable,
+    flags_set: FlagsSet<'static>,
+
+    timestamp: u32,
+
     tests: IndexSet<raw::Test>,
     testdata: Vec<raw::TestData>,
-    string_table: StringTable,
 }
 
 impl TestAnalyticsWriter {
     /// Creates a new Writer.
-    pub fn new(num_days: usize, timestamp: u32) -> Self {
+    pub fn new(num_days: usize) -> Self {
         Self {
-            timestamp,
             num_days,
+
+            string_table: StringTable::default(),
+            flags_set: FlagsSet::default(),
+
+            timestamp: 0,
+
             tests: IndexSet::new(),
             testdata: vec![],
-            string_table: Default::default(),
+        }
+    }
+
+    /// Creates an insertion session which allows inserting test run results.
+    pub fn start_session(&mut self, timestamp: u32, flags: &[&str]) -> InsertSession<'_> {
+        self.timestamp = self.timestamp.max(timestamp);
+        let flag_set_offset = self.flags_set.insert(&mut self.string_table, flags);
+
+        InsertSession {
+            writer: self,
+            flag_set_offset,
         }
     }
 
     /// Turns an existing parsed [`TestAnalytics`] file into a writer.
-    pub fn from_existing_format(
-        data: &TestAnalytics,
-        timestamp: u32,
-    ) -> Result<Self, TestAnalyticsError> {
+    pub fn from_existing_format(data: &TestAnalytics) -> Result<Self, TestAnalyticsError> {
         let tests = IndexSet::from_iter(data.tests.iter().cloned());
 
         let string_table = StringTable::from_bytes(data.string_bytes)
             .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference)?;
+        let flags_set = data.flags_set.into_owned();
 
         Ok(Self {
-            timestamp: timestamp.max(data.timestamp),
             num_days: data.header.num_days as usize,
+
+            string_table,
+            flags_set,
+
+            timestamp: data.timestamp,
+
             tests,
             testdata: data.testdata.into(),
-            string_table,
         })
     }
 
     /// Merges the two parsed [`TestAnalytics`] into a writer.
-    pub fn merge(
-        a: &TestAnalytics,
-        b: &TestAnalytics,
-        timestamp: u32,
-    ) -> Result<Self, TestAnalyticsError> {
+    pub fn merge(a: &TestAnalytics, b: &TestAnalytics) -> Result<Self, TestAnalyticsError> {
         // merging the smaller into the larger is usually the more performant thing to do:
         let (larger, smaller) =
             if (b.header.num_days, b.header.num_tests) > (a.header.num_tests, a.header.num_tests) {
@@ -64,15 +130,23 @@ impl TestAnalyticsWriter {
             } else {
                 (a, b)
             };
-        let timestamp = timestamp.max(a.timestamp).max(b.timestamp);
 
-        let mut writer = Self::from_existing_format(larger, timestamp)?;
+        let mut writer = Self::from_existing_format(larger)?;
+        writer.timestamp = a.timestamp.max(b.timestamp);
 
         // we just assume a 75% overlap, or 25% new unique entries:
         let expected_new = smaller.header.num_tests as usize / 4;
         writer.tests.reserve(expected_new);
         let expected_reserve = expected_new * writer.num_days;
         writer.testdata.reserve(expected_reserve);
+
+        let smaller_flags = smaller.flags_set.iter(smaller.string_bytes);
+        let mut flags_mapping = HashMap::with_capacity(smaller_flags.len());
+        for res in smaller_flags {
+            let (smaller_offset, flags) = res?;
+            let larger_offset = writer.flags_set.insert(&mut writer.string_table, &flags);
+            flags_mapping.insert(smaller_offset, larger_offset);
+        }
 
         for (smaller_idx, test) in smaller.tests.iter().enumerate() {
             let testsuite = StringTable::read(smaller.string_bytes, test.testsuite_offset as usize)
@@ -82,9 +156,14 @@ impl TestAnalyticsWriter {
 
             let testsuite_offset = writer.string_table.insert(testsuite) as u32;
             let name_offset = writer.string_table.insert(name) as u32;
+            let flag_set_offset = *flags_mapping
+                .get(&test.flag_set_offset)
+                .ok_or(TestAnalyticsErrorKind::InvalidFlagSetReference)?;
+
             let (idx, inserted) = writer.tests.insert_full(raw::Test {
                 testsuite_offset,
                 name_offset,
+                flag_set_offset,
             });
 
             let data_idx = idx * writer.num_days;
@@ -158,8 +237,11 @@ impl TestAnalyticsWriter {
     pub fn rewrite(
         &mut self,
         mut num_days: usize,
+        timestamp: u32,
         garbage_threshold: Option<usize>,
     ) -> Result<bool, TestAnalyticsError> {
+        self.timestamp = self.timestamp.max(timestamp);
+
         let needs_resize = num_days != self.num_days;
         let threshold = garbage_threshold.unwrap_or(self.tests.len() / 4);
         let record_liveness: Vec<_> = (0..self.tests.len())
@@ -180,8 +262,11 @@ impl TestAnalyticsWriter {
 
         mem::swap(&mut num_days, &mut self.num_days);
         let string_table = mem::take(&mut self.string_table);
+        let flags_set = mem::take(&mut self.flags_set);
         let tests = mem::take(&mut self.tests);
         let testdata = mem::take(&mut self.testdata);
+
+        let mut flags_mapping = HashMap::with_capacity(flags_set.map.len());
 
         let expected_size = live_records * self.num_days;
         self.tests.reserve(live_records);
@@ -191,6 +276,16 @@ impl TestAnalyticsWriter {
             if !record_live {
                 continue;
             }
+
+            let flag_set_offset = match flags_mapping.entry(test.flag_set_offset) {
+                hash_map::Entry::Occupied(occupied_entry) => *occupied_entry.get(),
+                hash_map::Entry::Vacant(vacant_entry) => {
+                    let flags = flags_set.resolve(string_table.as_bytes(), test.flag_set_offset)?;
+                    let flag_set_offset = self.flags_set.insert(&mut self.string_table, &flags);
+
+                    *vacant_entry.insert(flag_set_offset)
+                }
+            };
 
             let testsuite =
                 StringTable::read(string_table.as_bytes(), test.testsuite_offset as usize)
@@ -203,6 +298,7 @@ impl TestAnalyticsWriter {
             let (_new_idx, inserted) = self.tests.insert_full(raw::Test {
                 testsuite_offset,
                 name_offset,
+                flag_set_offset,
             });
             assert!(inserted); // the records are already unique, and we re-insert those
 
@@ -220,47 +316,13 @@ impl TestAnalyticsWriter {
         Ok(true)
     }
 
-    /// Writes the data for the given [`Testrun`](testrun::Testrun) into this aggregation.
-    pub fn add_test_run(&mut self, test: &testrun::Testrun) {
-        let testsuite_offset = self.string_table.insert(&test.testsuite) as u32;
-        let name_offset = self.string_table.insert(&test.name) as u32;
-        let (idx, inserted) = self.tests.insert_full(raw::Test {
-            testsuite_offset,
-            name_offset,
-        });
-
-        let data_idx = idx * self.num_days;
-        if inserted {
-            let expected_size = self.tests.len() * self.num_days;
-            self.testdata.resize_with(expected_size, TestData::default);
-        } else {
-            let range = data_idx..data_idx + self.num_days;
-            let test_timestamp = self.testdata[data_idx].last_timestamp;
-            let today_offset = offset_from_today(test_timestamp, self.timestamp);
-            shift_data(&mut self.testdata[range.clone()], today_offset);
-        }
-
-        let testdata = &mut self.testdata[data_idx];
-        testdata.total_duration += test.duration as f32;
-
-        if testdata.last_timestamp <= self.timestamp {
-            testdata.last_timestamp = self.timestamp;
-            testdata.last_duration = test.duration as f32;
-        }
-
-        match test.outcome {
-            testrun::Outcome::Pass => testdata.total_pass_count += 1,
-            testrun::Outcome::Error | testrun::Outcome::Failure => testdata.total_fail_count += 1,
-            testrun::Outcome::Skip => testdata.total_skip_count += 1,
-        }
-    }
-
     /// Serialize the converted data.
     ///
     /// This writes the [`TestAnalytics`] binary format into the given [`Write`].
     pub fn serialize<W: Write>(self, writer: &mut W) -> std::io::Result<()> {
         let mut writer = watto::Writer::new(writer);
 
+        let flags_set_table = self.flags_set.table;
         let string_bytes = self.string_table.into_bytes();
 
         let header = raw::Header {
@@ -271,6 +333,7 @@ impl TestAnalyticsWriter {
             num_days: self.num_days as u32,
             num_tests: self.tests.len() as u32,
 
+            flags_set_len: flags_set_table.len() as u32,
             string_bytes: string_bytes.len() as u32,
         };
 
@@ -281,6 +344,8 @@ impl TestAnalyticsWriter {
         }
 
         writer.write_all(self.testdata.as_bytes())?;
+
+        writer.write_all(flags_set_table.as_bytes())?;
 
         writer.write_all(&string_bytes)?;
 

@@ -752,6 +752,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "smallvec"
+version = "2.0.0-alpha.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6a96cb564e12be8458b004bd829787ebe887de197d94516d2ba5a2a32235a0c"
+
+[[package]]
 name = "syn"
 version = "2.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -781,6 +787,7 @@ dependencies = [
  "rinja",
  "serde",
  "serde_json",
+ "smallvec",
  "thiserror",
  "watto",
 ]
