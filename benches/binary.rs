@@ -109,35 +109,35 @@ fn write_tests(tests: &[Testrun], num_days: usize, timestamp: u32) -> Vec<u8> {
     buf
 }
 
-struct Upload {
-    flags: Vec<String>,
-    tests: Vec<Testrun>,
-}
+// struct Upload {
+//     flags: Vec<String>,
+//     tests: Vec<Testrun>,
+// }
 
-/// Generates a random set of `num_flags` flags.
-fn create_random_flags(rng: &mut impl Rng, num_flags: usize) -> Vec<String> {
-    let flag_lens = Uniform::from(5usize..10);
-    (0..num_flags)
-        .map(|_| {
-            let flag_len = flag_lens.sample(rng);
-            Alphanumeric.sample_string(rng, flag_len)
-        })
-        .collect()
-}
+// /// Generates a random set of `num_flags` flags.
+// fn create_random_flags(rng: &mut impl Rng, num_flags: usize) -> Vec<String> {
+//     let flag_lens = Uniform::from(5usize..10);
+//     (0..num_flags)
+//         .map(|_| {
+//             let flag_len = flag_lens.sample(rng);
+//             Alphanumeric.sample_string(rng, flag_len)
+//         })
+//         .collect()
+// }
 
-/// Samples random combinations of flags with length `max_flags_in_set`.
-fn sample_flag_sets<'a>(
-    rng: &'a mut impl Rng,
-    flags: &'a [String],
-    max_flags_in_set: usize,
-) -> impl Iterator<Item = Vec<String>> + 'a {
-    let num_flags = Uniform::from(0..max_flags_in_set);
-    std::iter::from_fn(move || {
-        let num_flags = num_flags.sample(rng);
-        let flags: Vec<_> = flags.choose_multiple(rng, num_flags).cloned().collect();
-        Some(flags)
-    })
-}
+// /// Samples random combinations of flags with length `max_flags_in_set`.
+// fn sample_flag_sets<'a>(
+//     rng: &'a mut impl Rng,
+//     flags: &'a [String],
+//     max_flags_in_set: usize,
+// ) -> impl Iterator<Item = Vec<String>> + 'a {
+//     let num_flags = Uniform::from(0..max_flags_in_set);
+//     std::iter::from_fn(move || {
+//         let num_flags = num_flags.sample(rng);
+//         let flags: Vec<_> = flags.choose_multiple(rng, num_flags).cloned().collect();
+//         Some(flags)
+//     })
+// }
 
 fn create_random_testcases(rng: &mut impl Rng, num_tests: usize) -> Vec<Testrun> {
     let name_lens = Uniform::from(5usize..50);

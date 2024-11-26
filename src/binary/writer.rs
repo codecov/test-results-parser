@@ -18,7 +18,7 @@ pub struct InsertSession<'writer> {
     flag_set_offset: u32,
 }
 
-impl<'writer> InsertSession<'writer> {
+impl InsertSession<'_> {
     /// Writes the data for the given [`Testrun`](testrun::Testrun) into the
     /// underlying [`TestAnalyticsWriter`].
     pub fn insert(&mut self, test: &testrun::Testrun) {
@@ -106,7 +106,7 @@ impl TestAnalyticsWriter {
 
         let string_table = StringTable::from_bytes(data.string_bytes)
             .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference)?;
-        let flags_set = data.flags_set.into_owned();
+        let flags_set = data.flags_set.to_owned();
 
         Ok(Self {
             num_days: data.header.num_days as usize,

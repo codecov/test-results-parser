@@ -76,7 +76,7 @@ mod tests {
 
     #[test]
     fn test_day_offsets() {
-        let offset = offset_from_today(0, 1 * DAY);
+        let offset = offset_from_today(0, DAY);
         assert_eq!(offset, 1);
 
         let offset = offset_from_today(0, 7 * DAY);

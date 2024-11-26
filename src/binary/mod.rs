@@ -6,7 +6,7 @@ mod timestamps;
 mod writer;
 
 pub use error::{TestAnalyticsError, TestAnalyticsErrorKind};
-pub use format::TestAnalytics;
+pub use format::{Test, TestAnalytics};
 pub use writer::TestAnalyticsWriter;
 
 #[cfg(test)]
@@ -151,7 +151,7 @@ mod tests {
         assert!(tests.next().is_none());
 
         // next, we re-parse one day ahead
-        let parsed = TestAnalytics::parse(&buf, 1 * DAY).unwrap();
+        let parsed = TestAnalytics::parse(&buf, DAY).unwrap();
         let mut tests = parsed.tests();
 
         let abc = tests.next().unwrap();
@@ -191,16 +191,16 @@ mod tests {
         let mut buf = vec![];
         writer.serialize(&mut buf).unwrap();
 
-        let parsed = TestAnalytics::parse(&buf, 1 * DAY).unwrap();
+        let parsed = TestAnalytics::parse(&buf, DAY).unwrap();
         let mut writer = TestAnalyticsWriter::from_existing_format(&parsed).unwrap();
-        let mut session = writer.start_session(1 * DAY, &[]);
+        let mut session = writer.start_session(DAY, &[]);
 
         session.insert(&test);
 
         let mut buf = vec![];
         writer.serialize(&mut buf).unwrap();
 
-        let parsed = TestAnalytics::parse(&buf, 1 * DAY).unwrap();
+        let parsed = TestAnalytics::parse(&buf, DAY).unwrap();
         let mut tests = parsed.tests();
 
         let abc = tests.next().unwrap();
@@ -240,13 +240,13 @@ mod tests {
         writer.serialize(&mut buf_1).unwrap();
 
         let mut writer = TestAnalyticsWriter::new(2);
-        let mut session = writer.start_session(1 * DAY, &[]);
+        let mut session = writer.start_session(DAY, &[]);
         session.insert(&test);
         let mut buf_2 = vec![];
         writer.serialize(&mut buf_2).unwrap();
 
-        let parsed_1 = TestAnalytics::parse(&buf_1, 1 * DAY).unwrap();
-        let parsed_2 = TestAnalytics::parse(&buf_2, 1 * DAY).unwrap();
+        let parsed_1 = TestAnalytics::parse(&buf_1, DAY).unwrap();
+        let parsed_2 = TestAnalytics::parse(&buf_2, DAY).unwrap();
 
         let merged_12 = TestAnalyticsWriter::merge(&parsed_1, &parsed_2).unwrap();
         let merged_21 = TestAnalyticsWriter::merge(&parsed_2, &parsed_1).unwrap();
@@ -258,7 +258,7 @@ mod tests {
 
         assert_eq!(buf_12, buf_21);
 
-        let parsed = TestAnalytics::parse(&buf_12, 1 * DAY).unwrap();
+        let parsed = TestAnalytics::parse(&buf_12, DAY).unwrap();
         let mut tests = parsed.tests();
 
         let abc = tests.next().unwrap();
@@ -299,19 +299,19 @@ mod tests {
         let mut buf = vec![];
         writer.serialize(&mut buf).unwrap();
 
-        let parsed = TestAnalytics::parse(&buf, 1 * DAY).unwrap();
+        let parsed = TestAnalytics::parse(&buf, DAY).unwrap();
         let mut writer = TestAnalyticsWriter::from_existing_format(&parsed).unwrap();
 
-        let was_rewritten = writer.rewrite(2, 1 * DAY, Some(0)).unwrap();
+        let was_rewritten = writer.rewrite(2, DAY, Some(0)).unwrap();
         assert!(!was_rewritten);
 
-        let was_rewritten = writer.rewrite(7, 1 * DAY, Some(0)).unwrap();
+        let was_rewritten = writer.rewrite(7, DAY, Some(0)).unwrap();
         assert!(was_rewritten);
 
         let mut buf = vec![];
         writer.serialize(&mut buf).unwrap();
 
-        let parsed = TestAnalytics::parse(&buf, 1 * DAY).unwrap();
+        let parsed = TestAnalytics::parse(&buf, DAY).unwrap();
         let mut tests = parsed.tests();
 
         // nothing garbage collected yet
@@ -364,7 +364,7 @@ mod tests {
         let mut buf = vec![];
         writer.serialize(&mut buf).unwrap();
 
-        let parsed = TestAnalytics::parse(&buf, 1 * DAY).unwrap();
+        let parsed = TestAnalytics::parse(&buf, DAY).unwrap();
         let mut tests = parsed.tests();
 
         // we get the test twice, with two different flags

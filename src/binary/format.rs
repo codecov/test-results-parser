@@ -92,7 +92,7 @@ impl<'data> TestAnalytics<'data> {
     }
 }
 
-impl<'data> fmt::Debug for TestAnalytics<'data> {
+impl fmt::Debug for TestAnalytics<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TestAnalytics")
             .field("version", &self.header.version)
@@ -113,7 +113,7 @@ pub struct Test<'data, 'parsed> {
     data_range: Range<usize>,
 }
 
-impl<'data, 'parsed> Test<'data, 'parsed> {
+impl<'data> Test<'data, '_> {
     /// Returns the testsuite of the test.
     pub fn testsuite(&self) -> Result<&'data str, TestAnalyticsError> {
         watto::StringTable::read(

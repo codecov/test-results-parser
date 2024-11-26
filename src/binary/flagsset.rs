@@ -107,7 +107,7 @@ impl<'table> FlagsSet<'table> {
         Ok(flags)
     }
 
-    pub fn into_owned(&self) -> FlagsSet<'static> {
+    pub fn to_owned(&self) -> FlagsSet<'static> {
         FlagsSet {
             map: self.map.clone(),
             table: self.table.clone().into_owned().into(),
