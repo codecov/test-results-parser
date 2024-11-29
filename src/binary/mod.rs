@@ -25,7 +25,7 @@ mod tests {
         writer.serialize(&mut buf).unwrap();
 
         let parsed = TestAnalytics::parse(&buf, 0).unwrap();
-        assert!(parsed.tests().next().is_none());
+        assert!(parsed.tests(0..60, None).unwrap().next().is_none());
     }
 
     #[test]
@@ -60,18 +60,18 @@ mod tests {
         writer.serialize(&mut buf).unwrap();
 
         let parsed = TestAnalytics::parse(&buf, 0).unwrap();
-        let mut tests = parsed.tests();
+        let mut tests = parsed.tests(0..60, None).unwrap();
 
         let abc = tests.next().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
-        let aggregates = abc.get_aggregates(0..60);
+        let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
         assert_eq!(aggregates.total_fail_count, 1);
         assert_eq!(aggregates.avg_duration, 1.5);
 
         let abc = tests.next().unwrap();
         assert_eq!(abc.name().unwrap(), "def");
-        let aggregates = abc.get_aggregates(0..60);
+        let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_skip_count, 1);
 
         assert!(tests.next().is_none());
@@ -102,7 +102,7 @@ mod tests {
         writer.serialize(&mut buf).unwrap();
 
         let parsed = TestAnalytics::parse(&buf, 0).unwrap();
-        let mut tests = parsed.tests();
+        let mut tests = parsed.tests(0..60, None).unwrap();
 
         let abc = tests.next().unwrap();
         assert_eq!(abc.testsuite().unwrap(), "");
@@ -140,11 +140,11 @@ mod tests {
         // the test was written at timestamp `0`, and we parse at that same timestamp
         // so we expect the data in the "today" bucket
         let parsed = TestAnalytics::parse(&buf, 0).unwrap();
-        let mut tests = parsed.tests();
+        let mut tests = parsed.tests(0..1, None).unwrap();
 
         let abc = tests.next().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
-        let aggregates = abc.get_aggregates(0..1);
+        let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
         assert_eq!(aggregates.avg_duration, 1.0);
 
@@ -152,17 +152,17 @@ mod tests {
 
         // next, we re-parse one day ahead
         let parsed = TestAnalytics::parse(&buf, DAY).unwrap();
-        let mut tests = parsed.tests();
+
+        // the test has no data for "today", so is not being yielded
+        let mut tests = parsed.tests(0..1, None).unwrap();
+        assert!(tests.next().is_none());
+
+        // the data should be in the "yesterday" bucket
+        let mut tests = parsed.tests(1..2, None).unwrap();
 
         let abc = tests.next().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
-
-        // the "today" bucket should be empty
-        let aggregates = abc.get_aggregates(0..1);
-        assert_eq!(aggregates.total_pass_count, 0);
-
-        // now, the data should be in the "yesterday" bucket
-        let aggregates = abc.get_aggregates(1..2);
+        let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
         assert_eq!(aggregates.avg_duration, 1.0);
 
@@ -201,21 +201,23 @@ mod tests {
         writer.serialize(&mut buf).unwrap();
 
         let parsed = TestAnalytics::parse(&buf, DAY).unwrap();
-        let mut tests = parsed.tests();
-
-        let abc = tests.next().unwrap();
-        assert_eq!(abc.name().unwrap(), "abc");
 
         // we should have data in the "today" bucket
-        let aggregates = abc.get_aggregates(0..1);
+        let mut tests = parsed.tests(0..1, None).unwrap();
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "abc");
+        let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
         assert_eq!(aggregates.avg_duration, 1.0);
+        assert!(tests.next().is_none());
 
         // as well as in the "yesterday" bucket
-        let aggregates = abc.get_aggregates(1..2);
+        let mut tests = parsed.tests(1..2, None).unwrap();
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "abc");
+        let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
         assert_eq!(aggregates.avg_duration, 1.0);
-
         assert!(tests.next().is_none());
     }
 
@@ -259,21 +261,23 @@ mod tests {
         assert_eq!(buf_12, buf_21);
 
         let parsed = TestAnalytics::parse(&buf_12, DAY).unwrap();
-        let mut tests = parsed.tests();
-
-        let abc = tests.next().unwrap();
-        assert_eq!(abc.name().unwrap(), "abc");
 
         // we should have data in the "today" bucket
-        let aggregates = abc.get_aggregates(0..1);
+        let mut tests = parsed.tests(0..1, None).unwrap();
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "abc");
+        let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
         assert_eq!(aggregates.avg_duration, 1.0);
+        assert!(tests.next().is_none());
 
         // as well as in the "yesterday" bucket
-        let aggregates = abc.get_aggregates(1..2);
+        let mut tests = parsed.tests(1..2, None).unwrap();
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "abc");
+        let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
         assert_eq!(aggregates.avg_duration, 1.0);
-
         assert!(tests.next().is_none());
     }
 
@@ -312,17 +316,15 @@ mod tests {
         writer.serialize(&mut buf).unwrap();
 
         let parsed = TestAnalytics::parse(&buf, DAY).unwrap();
-        let mut tests = parsed.tests();
 
-        // nothing garbage collected yet
+        // nothing garbage collected yet,
+        // we should have data in the "yesterday" bucket
+        let mut tests = parsed.tests(1..2, None).unwrap();
         let abc = tests.next().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
-
-        // we should have data in the "yesterday" bucket
-        let aggregates = abc.get_aggregates(1..2);
+        let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
         assert_eq!(aggregates.avg_duration, 1.0);
-
         assert!(tests.next().is_none());
 
         let mut writer = TestAnalyticsWriter::from_existing_format(&parsed).unwrap();
@@ -334,7 +336,7 @@ mod tests {
         writer.serialize(&mut buf).unwrap();
 
         let parsed = TestAnalytics::parse(&buf, 3 * DAY).unwrap();
-        let mut tests = parsed.tests();
+        let mut tests = parsed.tests(0..60, None).unwrap();
 
         // the test was garbage collected
         assert!(tests.next().is_none());
@@ -365,15 +367,28 @@ mod tests {
         writer.serialize(&mut buf).unwrap();
 
         let parsed = TestAnalytics::parse(&buf, DAY).unwrap();
-        let mut tests = parsed.tests();
+        let mut tests = parsed.tests(0..60, None).unwrap();
 
         // we get the test twice, with two different flags
         let abc = tests.next().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
+        assert_eq!(abc.flags().unwrap(), &["flag-a"]);
 
         let abc = tests.next().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
+        assert_eq!(abc.flags().unwrap(), &["flag-b"]);
 
+        assert!(tests.next().is_none());
+
+        // if we filter for flags, we get only matching tests:
+        let mut tests = parsed.tests(0..60, Some("flag-a")).unwrap();
+
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "abc");
+        assert_eq!(abc.flags().unwrap(), &["flag-a"]);
+        assert!(tests.next().is_none());
+
+        let mut tests = parsed.tests(0..60, Some("non-existing")).unwrap();
         assert!(tests.next().is_none());
     }
 }

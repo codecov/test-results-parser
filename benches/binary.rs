@@ -37,9 +37,9 @@ fn binary(c: &mut Criterion) {
         .bench_function("read_aggregation", |b| {
             b.iter(|| {
                 let parsed = TestAnalytics::parse(&buf, 0).unwrap();
-                for test in parsed.tests() {
+                for test in parsed.tests(0..60, None).unwrap() {
                     let _name = black_box(test.name().unwrap());
-                    let _aggregates = black_box(test.get_aggregates(0..60));
+                    let _aggregates = black_box(test.aggregates());
                 }
             })
         })

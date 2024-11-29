@@ -2,6 +2,7 @@ use std::fmt;
 use std::ops::Range;
 
 use flagsset::FlagsSet;
+use smallvec::SmallVec;
 use timestamps::{adjust_selection_range, offset_from_today};
 use watto::Pod;
 
@@ -74,21 +75,57 @@ impl<'data> TestAnalytics<'data> {
     }
 
     /// Iterates over the [`Test`]s included in the [`TestAnalytics`] summary.
-    pub fn tests(&self) -> impl Iterator<Item = Test<'data, '_>> + '_ {
+    pub fn tests(
+        &self,
+        desired_range: Range<usize>,
+        flag: Option<&str>,
+    ) -> Result<impl Iterator<Item = Test<'data, '_>> + '_, TestAnalyticsError> {
+        let matching_flags_sets = if let Some(flag) = flag {
+            let flag_sets = self.flags_set.iter(self.string_bytes);
+
+            let mut matching_flags_sets: SmallVec<u32, 4> = Default::default();
+            for res in flag_sets {
+                let (offset, flags) = res?;
+                if flags.contains(&flag) {
+                    matching_flags_sets.push(offset);
+                }
+            }
+            matching_flags_sets.sort();
+
+            Some(matching_flags_sets)
+        } else {
+            None
+        };
+
         let num_days = self.header.num_days as usize;
-        self.tests.iter().enumerate().map(move |(i, test)| {
+        let tests = self.tests.iter().enumerate().filter_map(move |(i, test)| {
+            if let Some(flags_sets) = &matching_flags_sets {
+                if !flags_sets.contains(&test.flag_set_offset) {
+                    return None;
+                }
+            }
+
             let start_idx = i * num_days;
             let latest_test_timestamp = self.testdata[start_idx].last_timestamp;
-            let today_offset = offset_from_today(latest_test_timestamp, self.timestamp);
 
+            let today_offset = offset_from_today(latest_test_timestamp, self.timestamp);
             let data_range = start_idx..start_idx + num_days;
-            Test {
-                today_offset,
+            let adjusted_range =
+                adjust_selection_range(data_range, desired_range.clone(), today_offset);
+
+            if adjusted_range.is_empty() {
+                return None;
+            }
+
+            let aggregates = Aggregates::from_data(&self.testdata[adjusted_range]);
+
+            Some(Test {
                 container: self,
                 data: test,
-                data_range,
-            }
-        })
+                aggregates,
+            })
+        });
+        Ok(tests)
     }
 }
 
@@ -106,11 +143,10 @@ impl fmt::Debug for TestAnalytics<'_> {
 /// This represents a specific test for which test analytics data is gathered.
 #[derive(Debug, Clone)]
 pub struct Test<'data, 'parsed> {
-    today_offset: usize,
     container: &'parsed TestAnalytics<'data>,
-
     data: &'data raw::Test,
-    data_range: Range<usize>,
+
+    aggregates: Aggregates,
 }
 
 impl<'data> Test<'data, '_> {
@@ -129,17 +165,40 @@ impl<'data> Test<'data, '_> {
             .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference.into())
     }
 
-    /// Calculates aggregate data for the given [`Range`] of days.
-    pub fn get_aggregates(&self, desired_range: Range<usize>) -> Aggregates {
-        let adjusted_range =
-            adjust_selection_range(self.data_range.clone(), desired_range, self.today_offset);
+    pub fn flags(&self) -> Result<SmallVec<&str, 4>, TestAnalyticsError> {
+        self.container
+            .flags_set
+            .resolve(self.container.string_bytes, self.data.flag_set_offset)
+    }
 
+    /// Returns the calculated aggregates.
+    pub fn aggregates(&self) -> &Aggregates {
+        &self.aggregates
+    }
+}
+
+/// Contains test run data aggregated over a given time period.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Aggregates {
+    pub total_pass_count: u32,
+    pub total_fail_count: u32,
+    pub total_skip_count: u32,
+    pub total_flaky_fail_count: u32,
+
+    pub failure_rate: f32,
+    pub flake_rate: f32,
+
+    pub avg_duration: f64,
+}
+
+impl Aggregates {
+    fn from_data(data: &[raw::TestData]) -> Self {
         let mut total_pass_count = 0;
         let mut total_fail_count = 0;
         let mut total_skip_count = 0;
         let mut total_flaky_fail_count = 0;
         let mut total_duration = 0.;
-        for testdata in &self.container.testdata[adjusted_range] {
+        for testdata in data {
             total_pass_count += testdata.total_pass_count as u32;
             total_fail_count += testdata.total_fail_count as u32;
             total_skip_count += testdata.total_skip_count as u32;
@@ -170,18 +229,4 @@ impl<'data> Test<'data, '_> {
             avg_duration,
         }
     }
-}
-
-/// Contains test run data aggregated over a given time period.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Aggregates {
-    pub total_pass_count: u32,
-    pub total_fail_count: u32,
-    pub total_skip_count: u32,
-    pub total_flaky_fail_count: u32,
-
-    pub failure_rate: f32,
-    pub flake_rate: f32,
-
-    pub avg_duration: f64,
 }
