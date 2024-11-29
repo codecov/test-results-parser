@@ -17,6 +17,20 @@ mod tests {
 
     use super::*;
 
+    fn test() -> Testrun {
+        Testrun {
+            name: "abc".into(),
+            classname: "".into(),
+            duration: Some(1.0),
+            outcome: Outcome::Pass,
+            testsuite: "".into(),
+            failure_message: None,
+            filename: None,
+            build_url: None,
+            computed_name: None,
+        }
+    }
+
     #[test]
     fn test_empty() {
         let writer = TestAnalyticsWriter::new(60);
@@ -30,17 +44,7 @@ mod tests {
 
     #[test]
     fn test_builder() {
-        let mut test = Testrun {
-            name: "abc".into(),
-            classname: "".into(),
-            duration: 1.0,
-            outcome: Outcome::Pass,
-            testsuite: "".into(),
-            failure_message: None,
-            filename: None,
-            build_url: None,
-            computed_name: None,
-        };
+        let mut test = test();
 
         let mut writer = TestAnalyticsWriter::new(2);
         let mut session = writer.start_session(0, &[]);
@@ -48,12 +52,12 @@ mod tests {
         session.insert(&test);
 
         test.outcome = Outcome::Failure;
-        test.duration = 2.0;
+        test.duration = Some(2.0);
         session.insert(&test);
 
         test.name = "def".into();
         test.outcome = Outcome::Skip;
-        test.duration = 0.0;
+        test.duration = Some(0.0);
         session.insert(&test);
 
         let mut buf = vec![];
@@ -79,17 +83,7 @@ mod tests {
 
     #[test]
     fn test_testsuites() {
-        let mut test = Testrun {
-            name: "abc".into(),
-            classname: "".into(),
-            duration: 1.0,
-            outcome: Outcome::Pass,
-            testsuite: "".into(),
-            failure_message: None,
-            filename: None,
-            build_url: None,
-            computed_name: None,
-        };
+        let mut test = test();
 
         let mut writer = TestAnalyticsWriter::new(2);
         let mut session = writer.start_session(0, &[]);
@@ -117,17 +111,7 @@ mod tests {
 
     #[test]
     fn test_time_shift() {
-        let test = Testrun {
-            name: "abc".into(),
-            classname: "".into(),
-            duration: 1.0,
-            outcome: Outcome::Pass,
-            testsuite: "".into(),
-            failure_message: None,
-            filename: None,
-            build_url: None,
-            computed_name: None,
-        };
+        let test = test();
 
         let mut writer = TestAnalyticsWriter::new(2);
         let mut session = writer.start_session(0, &[]);
@@ -171,17 +155,7 @@ mod tests {
 
     #[test]
     fn test_append_data() {
-        let test = Testrun {
-            name: "abc".into(),
-            classname: "".into(),
-            duration: 1.0,
-            outcome: Outcome::Pass,
-            testsuite: "".into(),
-            failure_message: None,
-            filename: None,
-            build_url: None,
-            computed_name: None,
-        };
+        let test = test();
 
         let mut writer = TestAnalyticsWriter::new(2);
         let mut session = writer.start_session(0, &[]);
@@ -223,17 +197,7 @@ mod tests {
 
     #[test]
     fn test_merge() {
-        let test = Testrun {
-            name: "abc".into(),
-            classname: "".into(),
-            duration: 1.0,
-            outcome: Outcome::Pass,
-            testsuite: "".into(),
-            failure_message: None,
-            filename: None,
-            build_url: None,
-            computed_name: None,
-        };
+        let test = test();
 
         let mut writer = TestAnalyticsWriter::new(2);
         let mut session = writer.start_session(0, &[]);
@@ -283,17 +247,7 @@ mod tests {
 
     #[test]
     fn test_garbage_collection() {
-        let test = Testrun {
-            name: "abc".into(),
-            classname: "".into(),
-            duration: 1.0,
-            outcome: Outcome::Pass,
-            testsuite: "".into(),
-            failure_message: None,
-            filename: None,
-            build_url: None,
-            computed_name: None,
-        };
+        let test = test();
 
         let mut writer = TestAnalyticsWriter::new(2);
         let mut session = writer.start_session(0, &[]);
@@ -344,17 +298,7 @@ mod tests {
 
     #[test]
     fn test_flags() {
-        let test = Testrun {
-            name: "abc".into(),
-            classname: "".into(),
-            duration: 1.0,
-            outcome: Outcome::Pass,
-            testsuite: "".into(),
-            failure_message: None,
-            filename: None,
-            build_url: None,
-            computed_name: None,
-        };
+        let test = test();
 
         let mut writer = TestAnalyticsWriter::new(2);
 
@@ -394,17 +338,7 @@ mod tests {
 
     #[test]
     fn test_historic_data() {
-        let test = Testrun {
-            name: "abc".into(),
-            classname: "".into(),
-            duration: 1.0,
-            outcome: Outcome::Pass,
-            testsuite: "".into(),
-            failure_message: None,
-            filename: None,
-            build_url: None,
-            computed_name: None,
-        };
+        let test = test();
 
         let mut writer = TestAnalyticsWriter::new(7);
 

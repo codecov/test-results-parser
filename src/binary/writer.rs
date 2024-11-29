@@ -72,11 +72,11 @@ impl InsertSession<'_> {
         }
 
         let testdata = &mut self.writer.testdata[data_idx];
-        testdata.total_duration += test.duration as f32;
+        testdata.total_duration += test.duration.unwrap_or_default() as f32;
 
         if testdata.last_timestamp <= self.writer.timestamp {
             testdata.last_timestamp = self.writer.timestamp;
-            testdata.last_duration = test.duration as f32;
+            testdata.last_duration = test.duration.unwrap_or_default() as f32;
         }
 
         match test.outcome {

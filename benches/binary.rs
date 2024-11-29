@@ -176,7 +176,7 @@ fn create_random_testcases(
                     Testrun {
                         name,
                         classname: "".into(),
-                        duration: 0.,
+                        duration: Some(1.0),
                         outcome: Outcome::Pass,
                         testsuite: "".into(),
                         failure_message: None,
@@ -197,7 +197,7 @@ fn randomize_test_data(rng: &mut impl Rng, uploads: &mut [Upload]) {
 
     for upload in uploads {
         for test in &mut upload.tests {
-            test.duration = durations.sample(rng);
+            test.duration = Some(durations.sample(rng));
             test.outcome = match outcomes.sample(rng) {
                 0 => Outcome::Pass,
                 1 => Outcome::Skip,
