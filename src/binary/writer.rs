@@ -3,7 +3,7 @@ use std::io::Write;
 use std::mem;
 
 use flagsset::FlagsSet;
-use indexmap::IndexSet;
+use indexmap::IndexMap;
 use raw::TestData;
 use timestamps::{adjust_selection_range, offset_from_today, shift_data};
 use watto::{Pod, StringTable};
@@ -15,6 +15,7 @@ use super::*;
 pub struct InsertSession<'writer> {
     writer: &'writer mut TestAnalyticsWriter,
 
+    timestamp: u32,
     flag_set_offset: u32,
 }
 
@@ -24,23 +25,50 @@ impl InsertSession<'_> {
     pub fn insert(&mut self, test: &testrun::Testrun) {
         let testsuite_offset = self.writer.string_table.insert(&test.testsuite) as u32;
         let name_offset = self.writer.string_table.insert(&test.name) as u32;
-        let (idx, inserted) = self.writer.tests.insert_full(raw::Test {
+        let key = TestKey {
             testsuite_offset,
             name_offset,
             flag_set_offset: self.flag_set_offset,
-        });
+        };
+        let value = raw::Test {
+            testsuite_offset,
+            name_offset,
+            flag_set_offset: self.flag_set_offset,
+            valid_data: 1,
+        };
+        let (idx, replaced) = self.writer.tests.insert_full(key, value);
 
-        let data_idx = idx * self.writer.num_days;
-        if inserted {
+        let mut data_idx = idx * self.writer.num_days;
+        if replaced.is_none() {
             let expected_size = self.writer.tests.len() * self.writer.num_days;
             self.writer
                 .testdata
                 .resize_with(expected_size, TestData::default);
         } else {
-            let range = data_idx..data_idx + self.writer.num_days;
-            let test_timestamp = self.writer.testdata[data_idx].last_timestamp;
-            let today_offset = offset_from_today(test_timestamp, self.writer.timestamp);
-            shift_data(&mut self.writer.testdata[range.clone()], today_offset);
+            let latest_timestamp = self.writer.testdata[data_idx].last_timestamp;
+
+            if latest_timestamp < self.timestamp {
+                // we are inserting newer data, so shift the existing data around
+                let today_offset = offset_from_today(latest_timestamp, self.timestamp);
+
+                let range = data_idx..data_idx + self.writer.num_days;
+                shift_data(&mut self.writer.testdata[range], today_offset);
+                extend_valid_data(
+                    &mut self.writer.tests[idx].valid_data,
+                    today_offset,
+                    self.writer.num_days,
+                );
+            } else {
+                // otherwise, we are inserting historic data, so adjust our `data_idx` accordingly
+                let today_offset = offset_from_today(self.timestamp, latest_timestamp);
+                if today_offset >= self.writer.num_days {
+                    return;
+                }
+                data_idx += today_offset;
+                self.writer.tests[idx].valid_data = self.writer.tests[idx]
+                    .valid_data
+                    .max(1 + today_offset as u32);
+            }
         }
 
         let testdata = &mut self.writer.testdata[data_idx];
@@ -59,6 +87,17 @@ impl InsertSession<'_> {
     }
 }
 
+fn extend_valid_data(valid_data: &mut u32, offset: usize, num_days: usize) {
+    *valid_data = (*valid_data as usize + offset).min(num_days) as u32;
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+struct TestKey {
+    pub testsuite_offset: u32,
+    pub name_offset: u32,
+    pub flag_set_offset: u32,
+}
+
 /// The [`TestAnalytics`] File Writer.
 #[derive(Debug)]
 pub struct TestAnalyticsWriter {
@@ -69,7 +108,7 @@ pub struct TestAnalyticsWriter {
 
     timestamp: u32,
 
-    tests: IndexSet<raw::Test>,
+    tests: IndexMap<TestKey, raw::Test>,
     testdata: Vec<raw::TestData>,
 }
 
@@ -84,7 +123,7 @@ impl TestAnalyticsWriter {
 
             timestamp: 0,
 
-            tests: IndexSet::new(),
+            tests: IndexMap::new(),
             testdata: vec![],
         }
     }
@@ -96,13 +135,21 @@ impl TestAnalyticsWriter {
 
         InsertSession {
             writer: self,
+            timestamp,
             flag_set_offset,
         }
     }
 
     /// Turns an existing parsed [`TestAnalytics`] file into a writer.
     pub fn from_existing_format(data: &TestAnalytics) -> Result<Self, TestAnalyticsError> {
-        let tests = IndexSet::from_iter(data.tests.iter().cloned());
+        let tests = IndexMap::from_iter(data.tests.iter().map(|test| {
+            let key = TestKey {
+                testsuite_offset: test.testsuite_offset,
+                name_offset: test.name_offset,
+                flag_set_offset: test.flag_set_offset,
+            };
+            (key, *test)
+        }));
 
         let string_table = StringTable::from_bytes(data.string_bytes)
             .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference)?;
@@ -160,17 +207,24 @@ impl TestAnalyticsWriter {
                 .get(&test.flag_set_offset)
                 .ok_or(TestAnalyticsErrorKind::InvalidFlagSetReference)?;
 
-            let (idx, inserted) = writer.tests.insert_full(raw::Test {
+            let key = TestKey {
                 testsuite_offset,
                 name_offset,
                 flag_set_offset,
-            });
+            };
+            let value = raw::Test {
+                testsuite_offset,
+                name_offset,
+                flag_set_offset,
+                valid_data: 1,
+            };
+            let (idx, replaced) = writer.tests.insert_full(key, value);
 
             let data_idx = idx * writer.num_days;
             let smaller_idx = smaller_idx * smaller.header.num_days as usize;
             let smaller_timestamp = smaller.testdata[smaller_idx].last_timestamp;
 
-            let larger_timestamp = if inserted {
+            let larger_timestamp = if replaced.is_none() {
                 let expected_size = writer.tests.len() * writer.num_days;
                 writer
                     .testdata
@@ -187,6 +241,11 @@ impl TestAnalyticsWriter {
                 let range = data_idx..data_idx + writer.num_days;
 
                 shift_data(&mut writer.testdata[range], today_offset);
+                extend_valid_data(
+                    &mut writer.tests[idx].valid_data,
+                    today_offset,
+                    writer.num_days,
+                );
 
                 let smaller_range = adjust_selection_range(
                     smaller_idx..smaller_idx + smaller.header.num_days as usize,
@@ -208,6 +267,11 @@ impl TestAnalyticsWriter {
             let overlap_len = smaller_range.end - smaller_range.start;
             let idx_start = data_idx + today_offset;
             let larger_range = idx_start..idx_start + overlap_len;
+
+            writer.tests[idx].valid_data = writer.tests[idx]
+                .valid_data
+                .max((larger_range.end - data_idx) as u32)
+                .min(writer.num_days as u32);
 
             let larger_data = &mut writer.testdata[larger_range];
             let smaller_data = &smaller.testdata[smaller_range];
@@ -272,7 +336,7 @@ impl TestAnalyticsWriter {
         self.tests.reserve(live_records);
         self.testdata.reserve(expected_size);
 
-        for ((old_idx, test), record_live) in tests.iter().enumerate().zip(record_liveness) {
+        for ((old_idx, test), record_live) in tests.values().enumerate().zip(record_liveness) {
             if !record_live {
                 continue;
             }
@@ -295,12 +359,19 @@ impl TestAnalyticsWriter {
 
             let testsuite_offset = self.string_table.insert(testsuite) as u32;
             let name_offset = self.string_table.insert(name) as u32;
-            let (_new_idx, inserted) = self.tests.insert_full(raw::Test {
+            let key = TestKey {
                 testsuite_offset,
                 name_offset,
                 flag_set_offset,
-            });
-            assert!(inserted); // the records are already unique, and we re-insert those
+            };
+            let value = raw::Test {
+                testsuite_offset,
+                name_offset,
+                flag_set_offset,
+                valid_data: test.valid_data.max(num_days as u32),
+            };
+            let (_new_idx, replaced) = self.tests.insert_full(key, value);
+            assert!(replaced.is_none()); // the records are already unique, and we re-insert those
 
             let overlap_days = num_days.min(self.num_days);
             let old_idx = old_idx * num_days;
@@ -339,7 +410,7 @@ impl TestAnalyticsWriter {
 
         writer.write_all(header.as_bytes())?;
 
-        for test in self.tests.into_iter() {
+        for test in self.tests.into_values() {
             writer.write_all(test.as_bytes())?;
         }
 

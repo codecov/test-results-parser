@@ -109,7 +109,7 @@ impl<'data> TestAnalytics<'data> {
             let latest_test_timestamp = self.testdata[start_idx].last_timestamp;
 
             let today_offset = offset_from_today(latest_test_timestamp, self.timestamp);
-            let data_range = start_idx..start_idx + num_days;
+            let data_range = start_idx..start_idx + test.valid_data as usize;
             let adjusted_range =
                 adjust_selection_range(data_range, desired_range.clone(), today_offset);
 

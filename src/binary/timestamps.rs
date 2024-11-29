@@ -57,16 +57,10 @@ pub fn adjust_selection_range(
     desired_range: Range<usize>,
     today_offset: usize,
 ) -> Range<usize> {
-    let range_start = data_range
-        .start
-        .saturating_add(desired_range.start)
-        .saturating_sub(today_offset);
-    let range_end = data_range
-        .start
-        .saturating_add(desired_range.end)
-        .saturating_sub(today_offset);
-    let range_start = range_start.max(data_range.start);
-    let range_end = range_end.min(data_range.end);
+    let range_start = (data_range.start + desired_range.start).saturating_sub(today_offset);
+    let range_end = (data_range.start + desired_range.end).saturating_sub(today_offset);
+    let range_start = range_start.min(data_range.end).max(data_range.start);
+    let range_end = range_end.min(data_range.end).max(data_range.start);
     range_start..range_end
 }
 

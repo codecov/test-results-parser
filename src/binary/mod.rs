@@ -391,4 +391,52 @@ mod tests {
         let mut tests = parsed.tests(0..60, Some("non-existing")).unwrap();
         assert!(tests.next().is_none());
     }
+
+    #[test]
+    fn test_historic_data() {
+        let test = Testrun {
+            name: "abc".into(),
+            classname: "".into(),
+            duration: 1.0,
+            outcome: Outcome::Pass,
+            testsuite: "".into(),
+            failure_message: None,
+            filename: None,
+            build_url: None,
+            computed_name: None,
+        };
+
+        let mut writer = TestAnalyticsWriter::new(7);
+
+        let mut session = writer.start_session(3 * DAY, &[]);
+        session.insert(&test);
+        // insert data older than what is already in the file
+        let mut session = writer.start_session(DAY, &[]);
+        session.insert(&test);
+
+        let mut buf = vec![];
+        writer.serialize(&mut buf).unwrap();
+
+        let parsed = TestAnalytics::parse(&buf, 4 * DAY).unwrap();
+
+        // we do not have any test data for "today"
+        let mut tests = parsed.tests(0..1, None).unwrap();
+        assert!(tests.next().is_none());
+
+        // when filtering for "yesterday", we get valid data
+        let mut tests = parsed.tests(1..2, None).unwrap();
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "abc");
+        assert!(tests.next().is_none());
+
+        // also when filtering for two days prior to that
+        let mut tests = parsed.tests(2..4, None).unwrap();
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.name().unwrap(), "abc");
+        assert!(tests.next().is_none());
+
+        // but not when going further back in time
+        let mut tests = parsed.tests(5..7, None).unwrap();
+        assert!(tests.next().is_none());
+    }
 }

@@ -23,15 +23,17 @@ pub struct Header {
 }
 unsafe impl Pod for Header {}
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct Test {
     /// Offset of the Testsuite name within the string table.
     pub testsuite_offset: u32,
     /// Offset of the Test name within the string table.
     pub name_offset: u32,
-
+    /// Offset of the Flag Set within the `FlagsSet` table.
     pub flag_set_offset: u32,
+    /// The number of valid data entries.
+    pub valid_data: u32,
 }
 unsafe impl Pod for Test {}
 
@@ -60,7 +62,7 @@ mod tests {
         assert_eq!(mem::size_of::<Header>(), 28);
         assert_eq!(mem::align_of::<Header>(), 4);
 
-        assert_eq!(mem::size_of::<Test>(), 8);
+        assert_eq!(mem::size_of::<Test>(), 16);
         assert_eq!(mem::align_of::<Test>(), 4);
 
         assert_eq!(mem::size_of::<TestData>(), 20);
