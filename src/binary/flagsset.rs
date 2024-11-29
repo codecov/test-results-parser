@@ -19,6 +19,7 @@ impl<'table> FlagsSet<'table> {
     pub fn insert(&mut self, string_table: &mut StringTable, flags: &[&str]) -> u32 {
         let mut flags: SmallVec<&str, 4> = flags.into();
         flags.sort();
+        flags.dedup();
 
         let flags = flags
             .iter()

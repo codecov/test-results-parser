@@ -11,27 +11,27 @@ use test_results_parser::{Outcome, Testrun};
 criterion_group!(benches, binary);
 criterion_main!(benches);
 
-const NUM_TESTS: usize = 100_000;
-const NON_OVERLAP: usize = 10_000;
+const NUM_UPLOADS: usize = 10;
+const NUM_TESTS_PER_UPLOAD: usize = 10_000;
 const DAY: u32 = 24 * 60 * 60;
 
 fn binary(c: &mut Criterion) {
-    let rand = &mut SmallRng::seed_from_u64(0);
+    let rng = &mut SmallRng::seed_from_u64(0);
 
-    let mut tests = create_random_testcases(rand, NUM_TESTS);
-    randomize_test_data(rand, &mut tests);
+    let mut uploads = create_random_testcases(rng, NUM_UPLOADS, NUM_TESTS_PER_UPLOAD);
+    randomize_test_data(rng, &mut uploads);
 
-    let buf = write_tests(&tests, 60, 0);
-    let buf_1 = write_tests(&tests[..NUM_TESTS - NON_OVERLAP], 60, 0);
-    randomize_test_data(rand, &mut tests);
-    let buf_2 = write_tests(&tests[NON_OVERLAP..], 60, 1 * DAY);
+    let buf = write_tests(&uploads, 60, 0);
+    let buf_1 = write_tests(&uploads[..NUM_UPLOADS - 1], 60, 0);
+    randomize_test_data(rng, &mut uploads);
+    let buf_2 = write_tests(&uploads[1..], 60, 1 * DAY);
 
     c.benchmark_group("binary")
-        .throughput(criterion::Throughput::Elements(NUM_TESTS as u64))
+        .throughput(criterion::Throughput::Elements(NUM_TESTS_PER_UPLOAD as u64))
         .sample_size(10) // because with the configured `NUM_TESTS`, each iteration would run >100ms
         .bench_function("create_and_serialize", |b| {
             b.iter(|| {
-                write_tests(&tests, 60, 0);
+                write_tests(&uploads, 60, 0);
             })
         })
         .bench_function("read_aggregation", |b| {
@@ -47,9 +47,14 @@ fn binary(c: &mut Criterion) {
             b.iter(|| {
                 let parsed = TestAnalytics::parse(&buf, 1).unwrap();
                 let mut writer = TestAnalyticsWriter::from_existing_format(&parsed).unwrap();
-                let mut session = writer.start_session(1, &[]);
-                for test in &tests {
-                    session.insert(test);
+                let mut flags = vec![];
+                for upload in &uploads {
+                    flags.clear();
+                    flags.extend(upload.flags.iter().map(String::as_str));
+                    let mut session = writer.start_session(1, &flags);
+                    for test in &upload.tests {
+                        session.insert(test);
+                    }
                 }
 
                 let mut buf = vec![];
@@ -61,9 +66,14 @@ fn binary(c: &mut Criterion) {
             b.iter(|| {
                 let parsed = TestAnalytics::parse(&buf_1, 1 * DAY).unwrap();
                 let mut writer = TestAnalyticsWriter::from_existing_format(&parsed).unwrap();
-                let mut session = writer.start_session(1 * DAY, &[]);
-                for test in &tests[NON_OVERLAP..] {
-                    session.insert(test);
+                let mut flags = vec![];
+                for upload in uploads.iter().skip(1) {
+                    flags.clear();
+                    flags.extend(upload.flags.iter().map(String::as_str));
+                    let mut session = writer.start_session(1, &flags);
+                    for test in &upload.tests {
+                        session.insert(test);
+                    }
                 }
 
                 let mut buf = vec![];
@@ -97,11 +107,16 @@ fn binary(c: &mut Criterion) {
         });
 }
 
-fn write_tests(tests: &[Testrun], num_days: usize, timestamp: u32) -> Vec<u8> {
+fn write_tests(uploads: &[Upload], num_days: usize, timestamp: u32) -> Vec<u8> {
     let mut writer = TestAnalyticsWriter::new(num_days);
-    let mut session = writer.start_session(timestamp, &[]);
-    for test in tests {
-        session.insert(test);
+    let mut flags = vec![];
+    for upload in uploads {
+        flags.clear();
+        flags.extend(upload.flags.iter().map(String::as_str));
+        let mut session = writer.start_session(timestamp, &flags);
+        for test in &upload.tests {
+            session.insert(test);
+        }
     }
 
     let mut buf = vec![];
@@ -109,69 +124,85 @@ fn write_tests(tests: &[Testrun], num_days: usize, timestamp: u32) -> Vec<u8> {
     buf
 }
 
-// struct Upload {
-//     flags: Vec<String>,
-//     tests: Vec<Testrun>,
-// }
+struct Upload {
+    flags: Vec<String>,
+    tests: Vec<Testrun>,
+}
 
-// /// Generates a random set of `num_flags` flags.
-// fn create_random_flags(rng: &mut impl Rng, num_flags: usize) -> Vec<String> {
-//     let flag_lens = Uniform::from(5usize..10);
-//     (0..num_flags)
-//         .map(|_| {
-//             let flag_len = flag_lens.sample(rng);
-//             Alphanumeric.sample_string(rng, flag_len)
-//         })
-//         .collect()
-// }
-
-// /// Samples random combinations of flags with length `max_flags_in_set`.
-// fn sample_flag_sets<'a>(
-//     rng: &'a mut impl Rng,
-//     flags: &'a [String],
-//     max_flags_in_set: usize,
-// ) -> impl Iterator<Item = Vec<String>> + 'a {
-//     let num_flags = Uniform::from(0..max_flags_in_set);
-//     std::iter::from_fn(move || {
-//         let num_flags = num_flags.sample(rng);
-//         let flags: Vec<_> = flags.choose_multiple(rng, num_flags).cloned().collect();
-//         Some(flags)
-//     })
-// }
-
-fn create_random_testcases(rng: &mut impl Rng, num_tests: usize) -> Vec<Testrun> {
-    let name_lens = Uniform::from(5usize..50);
-
-    (0..num_tests)
+/// Generates a random set of `num_flags` flags.
+fn create_random_flags(rng: &mut impl Rng, num_flags: usize) -> Vec<String> {
+    let flag_lens = Uniform::from(5usize..10);
+    (0..num_flags)
         .map(|_| {
-            let name_len = name_lens.sample(rng);
-            let name = Alphanumeric.sample_string(rng, name_len);
-
-            Testrun {
-                name,
-                classname: "".into(),
-                duration: 0.,
-                outcome: Outcome::Pass,
-                testsuite: "".into(),
-                failure_message: None,
-                filename: None,
-                build_url: None,
-                computed_name: None,
-            }
+            let flag_len = flag_lens.sample(rng);
+            Alphanumeric.sample_string(rng, flag_len)
         })
         .collect()
 }
 
-fn randomize_test_data(rng: &mut impl Rng, tests: &mut [Testrun]) {
+/// Samples random combinations of flags with length `max_flags_in_set`.
+fn sample_flag_sets<'a>(
+    rng: &'a mut impl Rng,
+    flags: &'a [String],
+    max_flags_in_set: usize,
+) -> impl Iterator<Item = Vec<String>> + 'a {
+    let num_flags = Uniform::from(0..max_flags_in_set);
+    std::iter::from_fn(move || {
+        let num_flags = num_flags.sample(rng);
+        let flags: Vec<_> = flags.choose_multiple(rng, num_flags).cloned().collect();
+        Some(flags)
+    })
+}
+
+fn create_random_testcases(
+    rng: &mut impl Rng,
+    num_uploads: usize,
+    num_tests_per_upload: usize,
+) -> Vec<Upload> {
+    let flags = create_random_flags(rng, 5);
+    let flag_sets: Vec<_> = sample_flag_sets(rng, &flags, 3)
+        .take(num_uploads / 3)
+        .collect();
+    let name_lens = Uniform::from(5usize..50);
+
+    (0..num_uploads)
+        .map(|_| {
+            let flags = flag_sets.choose(rng).cloned().unwrap_or_default();
+            let tests = (0..num_tests_per_upload)
+                .map(|_| {
+                    let name_len = name_lens.sample(rng);
+                    let name = Alphanumeric.sample_string(rng, name_len);
+
+                    Testrun {
+                        name,
+                        classname: "".into(),
+                        duration: 0.,
+                        outcome: Outcome::Pass,
+                        testsuite: "".into(),
+                        failure_message: None,
+                        filename: None,
+                        build_url: None,
+                        computed_name: None,
+                    }
+                })
+                .collect();
+            Upload { flags, tests }
+        })
+        .collect()
+}
+
+fn randomize_test_data(rng: &mut impl Rng, uploads: &mut [Upload]) {
     let durations = Uniform::from(0f64..10f64);
     let outcomes = WeightedIndex::new([1000, 10, 20]).unwrap();
 
-    for test in tests {
-        test.duration = durations.sample(rng);
-        test.outcome = match outcomes.sample(rng) {
-            0 => Outcome::Pass,
-            1 => Outcome::Skip,
-            _ => Outcome::Failure,
-        };
+    for upload in uploads {
+        for test in &mut upload.tests {
+            test.duration = durations.sample(rng);
+            test.outcome = match outcomes.sample(rng) {
+                0 => Outcome::Pass,
+                1 => Outcome::Skip,
+                _ => Outcome::Failure,
+            };
+        }
     }
 }
