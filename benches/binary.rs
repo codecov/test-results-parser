@@ -51,7 +51,7 @@ fn binary(c: &mut Criterion) {
                 for upload in &uploads {
                     flags.clear();
                     flags.extend(upload.flags.iter().map(String::as_str));
-                    let mut session = writer.start_session(1, &flags);
+                    let mut session = writer.start_session(1, CommitHash::default(), &flags);
                     for test in &upload.tests {
                         session.insert(test);
                     }
@@ -70,7 +70,7 @@ fn binary(c: &mut Criterion) {
                 for upload in uploads.iter().skip(1) {
                     flags.clear();
                     flags.extend(upload.flags.iter().map(String::as_str));
-                    let mut session = writer.start_session(1, &flags);
+                    let mut session = writer.start_session(1, CommitHash::default(), &flags);
                     for test in &upload.tests {
                         session.insert(test);
                     }
@@ -113,7 +113,7 @@ fn write_tests(uploads: &[Upload], num_days: usize, timestamp: u32) -> Vec<u8> {
     for upload in uploads {
         flags.clear();
         flags.extend(upload.flags.iter().map(String::as_str));
-        let mut session = writer.start_session(timestamp, &flags);
+        let mut session = writer.start_session(timestamp, CommitHash::default(), &flags);
         for test in &upload.tests {
             session.insert(test);
         }

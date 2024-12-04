@@ -2,7 +2,8 @@ use std::collections::{hash_map, HashMap};
 use std::io::Write;
 use std::mem;
 
-use flagsset::FlagsSet;
+use commithashes_set::CommitHashesSet;
+use flags_set::FlagsSet;
 use indexmap::IndexMap;
 use raw::TestData;
 use timestamps::{adjust_selection_range, offset_from_today, shift_data};
@@ -16,6 +17,7 @@ pub struct InsertSession<'writer> {
     writer: &'writer mut TestAnalyticsWriter,
 
     timestamp: u32,
+    commit_hash: raw::CommitHash,
     flag_set_offset: u32,
 }
 
@@ -105,6 +107,7 @@ pub struct TestAnalyticsWriter {
 
     string_table: StringTable,
     flags_set: FlagsSet<'static>,
+    commithashes_set: CommitHashesSet,
 
     timestamp: u32,
 
@@ -120,6 +123,7 @@ impl TestAnalyticsWriter {
 
             string_table: StringTable::default(),
             flags_set: FlagsSet::default(),
+            commithashes_set: CommitHashesSet::default(),
 
             timestamp: 0,
 
@@ -129,7 +133,12 @@ impl TestAnalyticsWriter {
     }
 
     /// Creates an insertion session which allows inserting test run results.
-    pub fn start_session(&mut self, timestamp: u32, flags: &[&str]) -> InsertSession<'_> {
+    pub fn start_session(
+        &mut self,
+        timestamp: u32,
+        commit_hash: raw::CommitHash,
+        flags: &[&str],
+    ) -> InsertSession<'_> {
         self.timestamp = self.timestamp.max(timestamp);
         let flag_set_offset = self.flags_set.insert(&mut self.string_table, flags);
 
@@ -137,6 +146,7 @@ impl TestAnalyticsWriter {
             writer: self,
             timestamp,
             flag_set_offset,
+            commit_hash,
         }
     }
 
@@ -154,12 +164,14 @@ impl TestAnalyticsWriter {
         let string_table = StringTable::from_bytes(data.string_bytes)
             .map_err(|_| TestAnalyticsErrorKind::InvalidStringReference)?;
         let flags_set = data.flags_set.to_owned();
+        let commithashes_set = CommitHashesSet::from_bytes(data.commithashes_bytes)?;
 
         Ok(Self {
             num_days: data.header.num_days as usize,
 
             string_table,
             flags_set,
+            commithashes_set,
 
             timestamp: data.timestamp,
 
@@ -394,6 +406,7 @@ impl TestAnalyticsWriter {
         let mut writer = watto::Writer::new(writer);
 
         let flags_set_table = self.flags_set.table;
+        let commithashes_bytes = self.commithashes_set.into_bytes();
         let string_bytes = self.string_table.into_bytes();
 
         let header = raw::Header {
@@ -405,6 +418,7 @@ impl TestAnalyticsWriter {
             num_tests: self.tests.len() as u32,
 
             flags_set_len: flags_set_table.len() as u32,
+            commithashes_bytes: commithashes_bytes.len() as u32,
             string_bytes: string_bytes.len() as u32,
         };
 
@@ -418,6 +432,7 @@ impl TestAnalyticsWriter {
 
         writer.write_all(flags_set_table.as_bytes())?;
 
+        writer.write_all(&commithashes_bytes)?;
         writer.write_all(&string_bytes)?;
 
         Ok(())

@@ -33,6 +33,9 @@ pub enum TestAnalyticsErrorKind {
     /// The flag set reference was invalid
     #[error("could not resolve flag set reference")]
     InvalidFlagSetReference,
+    /// The commit set reference was invalid
+    #[error("could not resolve commit set reference")]
+    InvalidCommitSetReference,
 }
 
 /// An error encountered during [`TestAnalytics`] creation or parsing.

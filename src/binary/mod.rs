@@ -1,5 +1,6 @@
+mod commithashes_set;
 mod error;
-mod flagsset;
+mod flags_set;
 mod format;
 mod raw;
 mod timestamps;
@@ -7,10 +8,12 @@ mod writer;
 
 pub use error::{TestAnalyticsError, TestAnalyticsErrorKind};
 pub use format::{Test, TestAnalytics};
+pub use raw::CommitHash;
 pub use writer::TestAnalyticsWriter;
 
 #[cfg(test)]
 mod tests {
+    use raw::CommitHash;
     use timestamps::DAY;
 
     use crate::testrun::{Outcome, Testrun};
@@ -47,7 +50,7 @@ mod tests {
         let mut test = test();
 
         let mut writer = TestAnalyticsWriter::new(2);
-        let mut session = writer.start_session(0, &[]);
+        let mut session = writer.start_session(0, CommitHash::default(), &[]);
 
         session.insert(&test);
 
@@ -86,7 +89,7 @@ mod tests {
         let mut test = test();
 
         let mut writer = TestAnalyticsWriter::new(2);
-        let mut session = writer.start_session(0, &[]);
+        let mut session = writer.start_session(0, CommitHash::default(), &[]);
 
         session.insert(&test);
         test.testsuite = "some testsuite".into();
@@ -114,7 +117,7 @@ mod tests {
         let test = test();
 
         let mut writer = TestAnalyticsWriter::new(2);
-        let mut session = writer.start_session(0, &[]);
+        let mut session = writer.start_session(0, CommitHash::default(), &[]);
 
         session.insert(&test);
 
@@ -158,7 +161,7 @@ mod tests {
         let test = test();
 
         let mut writer = TestAnalyticsWriter::new(2);
-        let mut session = writer.start_session(0, &[]);
+        let mut session = writer.start_session(0, CommitHash::default(), &[]);
 
         session.insert(&test);
 
@@ -167,7 +170,7 @@ mod tests {
 
         let parsed = TestAnalytics::parse(&buf, DAY).unwrap();
         let mut writer = TestAnalyticsWriter::from_existing_format(&parsed).unwrap();
-        let mut session = writer.start_session(DAY, &[]);
+        let mut session = writer.start_session(DAY, CommitHash::default(), &[]);
 
         session.insert(&test);
 
@@ -200,13 +203,13 @@ mod tests {
         let test = test();
 
         let mut writer = TestAnalyticsWriter::new(2);
-        let mut session = writer.start_session(0, &[]);
+        let mut session = writer.start_session(0, CommitHash::default(), &[]);
         session.insert(&test);
         let mut buf_1 = vec![];
         writer.serialize(&mut buf_1).unwrap();
 
         let mut writer = TestAnalyticsWriter::new(2);
-        let mut session = writer.start_session(DAY, &[]);
+        let mut session = writer.start_session(DAY, CommitHash::default(), &[]);
         session.insert(&test);
         let mut buf_2 = vec![];
         writer.serialize(&mut buf_2).unwrap();
@@ -250,7 +253,7 @@ mod tests {
         let test = test();
 
         let mut writer = TestAnalyticsWriter::new(2);
-        let mut session = writer.start_session(0, &[]);
+        let mut session = writer.start_session(0, CommitHash::default(), &[]);
 
         session.insert(&test);
 
@@ -302,9 +305,9 @@ mod tests {
 
         let mut writer = TestAnalyticsWriter::new(2);
 
-        let mut session = writer.start_session(0, &["flag-a"]);
+        let mut session = writer.start_session(0, CommitHash::default(), &["flag-a"]);
         session.insert(&test);
-        let mut session = writer.start_session(0, &["flag-b"]);
+        let mut session = writer.start_session(0, CommitHash::default(), &["flag-b"]);
         session.insert(&test);
 
         let mut buf = vec![];
@@ -342,10 +345,10 @@ mod tests {
 
         let mut writer = TestAnalyticsWriter::new(7);
 
-        let mut session = writer.start_session(3 * DAY, &[]);
+        let mut session = writer.start_session(3 * DAY, CommitHash::default(), &[]);
         session.insert(&test);
         // insert data older than what is already in the file
-        let mut session = writer.start_session(DAY, &[]);
+        let mut session = writer.start_session(DAY, CommitHash::default(), &[]);
         session.insert(&test);
 
         let mut buf = vec![];

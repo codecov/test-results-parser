@@ -18,6 +18,8 @@ pub struct Header {
     pub num_days: u32,
     /// Length of the `FlagsSet` table.
     pub flags_set_len: u32,
+    /// Length of the `CommitHashesSet` table.
+    pub commithashes_bytes: u32,
     /// Length of the string table.
     pub string_bytes: u32,
 }
@@ -48,8 +50,15 @@ pub struct TestData {
     pub total_skip_count: u16,
     pub total_flaky_fail_count: u16,
     pub total_duration: f32,
+
+    pub failing_commits_set: u32,
 }
 unsafe impl Pod for TestData {}
+
+#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(C)]
+pub struct CommitHash([u8; 20]);
+unsafe impl Pod for CommitHash {}
 
 #[cfg(test)]
 mod tests {
@@ -59,13 +68,16 @@ mod tests {
 
     #[test]
     fn test_sizeof() {
-        assert_eq!(mem::size_of::<Header>(), 28);
+        assert_eq!(mem::size_of::<Header>(), 32);
         assert_eq!(mem::align_of::<Header>(), 4);
 
         assert_eq!(mem::size_of::<Test>(), 16);
         assert_eq!(mem::align_of::<Test>(), 4);
 
-        assert_eq!(mem::size_of::<TestData>(), 20);
+        assert_eq!(mem::size_of::<TestData>(), 24);
         assert_eq!(mem::align_of::<TestData>(), 4);
+
+        assert_eq!(mem::size_of::<CommitHash>(), 24);
+        assert_eq!(mem::align_of::<CommitHash>(), 1);
     }
 }

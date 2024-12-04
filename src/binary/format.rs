@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::Range;
 
-use flagsset::FlagsSet;
+use flags_set::FlagsSet;
 use smallvec::SmallVec;
 use timestamps::{adjust_selection_range, offset_from_today};
 use watto::Pod;
@@ -20,8 +20,9 @@ pub struct TestAnalytics<'data> {
 
     pub(crate) header: &'data raw::Header,
 
-    pub(crate) string_bytes: &'data [u8],
     pub(crate) flags_set: FlagsSet<'data>,
+    pub(crate) commithashes_bytes: &'data [u8],
+    pub(crate) string_bytes: &'data [u8],
 
     pub(crate) tests: &'data [raw::Test],
     pub(crate) testdata: &'data [raw::TestData],
@@ -52,6 +53,10 @@ impl<'data> TestAnalytics<'data> {
         let (flags_set, rest) = u32::slice_from_prefix(rest, header.flags_set_len as usize)
             .ok_or(TestAnalyticsErrorKind::InvalidTables)?;
 
+        let (commithashes_bytes, rest) =
+            u8::slice_from_prefix(rest, header.commithashes_bytes as usize)
+                .ok_or(TestAnalyticsErrorKind::InvalidTables)?;
+
         let string_bytes = rest.get(..header.string_bytes as usize).ok_or(
             TestAnalyticsErrorKind::UnexpectedStringBytes {
                 expected: header.string_bytes as usize,
@@ -66,8 +71,9 @@ impl<'data> TestAnalytics<'data> {
 
             header,
 
-            string_bytes,
             flags_set,
+            commithashes_bytes,
+            string_bytes,
 
             tests,
             testdata,
