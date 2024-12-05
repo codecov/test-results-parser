@@ -82,9 +82,15 @@ impl InsertSession<'_> {
         }
 
         match test.outcome {
-            testrun::Outcome::Pass => testdata.total_pass_count += 1,
-            testrun::Outcome::Error | testrun::Outcome::Failure => testdata.total_fail_count += 1,
             testrun::Outcome::Skip => testdata.total_skip_count += 1,
+            testrun::Outcome::Pass => testdata.total_pass_count += 1,
+            testrun::Outcome::Error | testrun::Outcome::Failure => {
+                testdata.total_fail_count += 1;
+                testdata.failing_commits_set = self
+                    .writer
+                    .commithashes_set
+                    .append_intersection(testdata.failing_commits_set, &[self.commit_hash]);
+            }
         }
     }
 }
@@ -123,7 +129,7 @@ impl TestAnalyticsWriter {
 
             string_table: StringTable::default(),
             flags_set: FlagsSet::default(),
-            commithashes_set: CommitHashesSet::default(),
+            commithashes_set: CommitHashesSet::new(),
 
             timestamp: 0,
 
@@ -285,6 +291,8 @@ impl TestAnalyticsWriter {
                 .max((larger_range.end - data_idx) as u32)
                 .min(writer.num_days as u32);
 
+            let commithashes_bytes = smaller.commithashes_bytes;
+
             let larger_data = &mut writer.testdata[larger_range];
             let smaller_data = &smaller.testdata[smaller_range];
 
@@ -298,6 +306,14 @@ impl TestAnalyticsWriter {
                 if smaller.last_timestamp >= larger.last_timestamp {
                     larger.last_timestamp = smaller.last_timestamp;
                     larger.last_duration = smaller.last_duration;
+                }
+
+                let smaller_failing_commits =
+                    CommitHashesSet::read_raw(commithashes_bytes, smaller.failing_commits_set)?;
+                if !smaller_failing_commits.is_empty() {
+                    larger.failing_commits_set = writer
+                        .commithashes_set
+                        .append_intersection(larger.failing_commits_set, smaller_failing_commits);
                 }
             }
         }
@@ -341,6 +357,7 @@ impl TestAnalyticsWriter {
         let flags_set = mem::take(&mut self.flags_set);
         let tests = mem::take(&mut self.tests);
         let testdata = mem::take(&mut self.testdata);
+        let commithashes_set = mem::replace(&mut self.commithashes_set, CommitHashesSet::new());
 
         let mut flags_mapping = HashMap::with_capacity(flags_set.map.len());
 
@@ -389,8 +406,17 @@ impl TestAnalyticsWriter {
             let old_idx = old_idx * num_days;
 
             let old_range = old_idx..old_idx + overlap_days;
-            self.testdata
-                .extend_from_slice(&testdata[old_range.clone()]);
+            self.testdata.extend(testdata[old_range].iter().map(|data| {
+                let failing_commits = commithashes_set.read(data.failing_commits_set);
+                let failing_commits_set = self
+                    .commithashes_set
+                    .append_intersection(0, failing_commits);
+
+                TestData {
+                    failing_commits_set,
+                    ..*data
+                }
+            }));
 
             let expected_size = self.tests.len() * self.num_days;
             self.testdata.resize_with(expected_size, TestData::default);
