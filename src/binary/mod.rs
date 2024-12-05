@@ -376,4 +376,65 @@ mod tests {
         let mut tests = parsed.tests(5..7, None).unwrap();
         assert!(tests.next().is_none());
     }
+
+    #[test]
+    fn test_commit_hashes() {
+        let mut test = test();
+        test.outcome = Outcome::Failure;
+        let commit_1 = CommitHash([0; 20]);
+        let commit_2 = CommitHash([1; 20]);
+        let commit_3 = CommitHash([2; 20]);
+        let commit_4 = CommitHash([3; 20]);
+
+        let mut writer = TestAnalyticsWriter::new(7);
+
+        let mut session = writer.start_session(DAY, commit_1, &[]);
+        session.insert(&test);
+
+        let mut buf1 = vec![];
+        writer.serialize(&mut buf1).unwrap();
+
+        let mut writer = TestAnalyticsWriter::new(7);
+
+        let mut session = writer.start_session(DAY, commit_2, &[]);
+        session.insert(&test);
+        let mut session = writer.start_session(2 * DAY, commit_3, &[]);
+        session.insert(&test);
+        let mut session = writer.start_session(3 * DAY, commit_4, &[]);
+        session.insert(&test);
+
+        let mut buf2 = vec![];
+        writer.serialize(&mut buf2).unwrap();
+
+        let parsed1 = TestAnalytics::parse(&buf1, 3 * DAY).unwrap();
+        let parsed2 = TestAnalytics::parse(&buf2, 3 * DAY).unwrap();
+
+        let merged = TestAnalyticsWriter::merge(&parsed1, &parsed2).unwrap();
+        let mut buf = vec![];
+        merged.serialize(&mut buf).unwrap();
+
+        let parsed = TestAnalytics::parse(&buf, 3 * DAY).unwrap();
+        let mut writer = TestAnalyticsWriter::from_existing_format(&parsed).unwrap();
+        let was_rewritten = writer.rewrite(14, 3 * DAY, Some(0)).unwrap();
+        assert!(was_rewritten);
+        let mut buf = vec![];
+        writer.serialize(&mut buf).unwrap();
+
+        let parsed = TestAnalytics::parse(&buf, 3 * DAY).unwrap();
+
+        let mut tests = parsed.tests(0..1, None).unwrap();
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.aggregates().failing_commits, 1); // commit 4
+        assert!(tests.next().is_none());
+
+        let mut tests = parsed.tests(2..3, None).unwrap();
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.aggregates().failing_commits, 2); // commit 1, commit 2
+        assert!(tests.next().is_none());
+
+        let mut tests = parsed.tests(0..60, None).unwrap();
+        let abc = tests.next().unwrap();
+        assert_eq!(abc.aggregates().failing_commits, 4); // commit 1 - 4
+        assert!(tests.next().is_none());
+    }
 }

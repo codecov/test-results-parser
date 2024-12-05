@@ -1,6 +1,8 @@
+use std::collections::HashSet;
 use std::fmt;
 use std::ops::Range;
 
+use commithashes_set::CommitHashesSet;
 use flags_set::FlagsSet;
 use smallvec::SmallVec;
 use timestamps::{adjust_selection_range, offset_from_today};
@@ -102,6 +104,7 @@ impl<'data> TestAnalytics<'data> {
         } else {
             None
         };
+        let mut failing_commits = HashSet::new();
 
         let num_days = self.header.num_days as usize;
         let tests = self.tests.iter().enumerate().filter_map(move |(i, test)| {
@@ -123,7 +126,11 @@ impl<'data> TestAnalytics<'data> {
                 return None;
             }
 
-            let aggregates = Aggregates::from_data(&self.testdata[adjusted_range]);
+            let aggregates = Aggregates::from_data(
+                self.commithashes_bytes,
+                &mut failing_commits,
+                &self.testdata[adjusted_range],
+            );
 
             Some(Test {
                 container: self,
@@ -195,22 +202,38 @@ pub struct Aggregates {
     pub flake_rate: f32,
 
     pub avg_duration: f64,
+
+    pub failing_commits: usize,
 }
 
 impl Aggregates {
-    fn from_data(data: &[raw::TestData]) -> Self {
+    fn from_data(
+        commithashes_bytes: &[u8],
+        all_failing_commits: &mut HashSet<CommitHash>,
+        data: &[raw::TestData],
+    ) -> Self {
         let mut total_pass_count = 0;
         let mut total_fail_count = 0;
         let mut total_skip_count = 0;
         let mut total_flaky_fail_count = 0;
         let mut total_duration = 0.;
+
         for testdata in data {
             total_pass_count += testdata.total_pass_count as u32;
             total_fail_count += testdata.total_fail_count as u32;
             total_skip_count += testdata.total_skip_count as u32;
             total_flaky_fail_count += testdata.total_flaky_fail_count as u32;
             total_duration += testdata.total_duration as f64;
+
+            // TODO: make sure we validate this data ahead of time!
+            let failing_commits =
+                CommitHashesSet::read_raw(commithashes_bytes, testdata.failing_commits_set)
+                    .unwrap();
+            all_failing_commits.extend(failing_commits);
         }
+
+        let failing_commits = all_failing_commits.len();
+        all_failing_commits.clear();
 
         let total_run_count = total_pass_count + total_fail_count;
         let (failure_rate, flake_rate, avg_duration) = if total_run_count > 0 {
@@ -233,6 +256,8 @@ impl Aggregates {
             flake_rate,
 
             avg_duration,
+
+            failing_commits,
         }
     }
 }

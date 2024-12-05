@@ -57,7 +57,7 @@ unsafe impl Pod for TestData {}
 
 #[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(C)]
-pub struct CommitHash([u8; 20]);
+pub struct CommitHash(pub [u8; 20]);
 unsafe impl Pod for CommitHash {}
 
 #[cfg(test)]
@@ -77,7 +77,7 @@ mod tests {
         assert_eq!(mem::size_of::<TestData>(), 24);
         assert_eq!(mem::align_of::<TestData>(), 4);
 
-        assert_eq!(mem::size_of::<CommitHash>(), 24);
+        assert_eq!(mem::size_of::<CommitHash>(), 20);
         assert_eq!(mem::align_of::<CommitHash>(), 1);
     }
 }
