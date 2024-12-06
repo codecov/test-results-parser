@@ -6,13 +6,12 @@ on:
       - main
   pull_request:
 
-env:
-  RUSTFLAGS: -Dwarnings
-
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@v4
 
