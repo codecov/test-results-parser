@@ -1,3 +1,4 @@
+mod bindings;
 mod commithashes_set;
 mod error;
 mod flags_set;
@@ -6,6 +7,7 @@ mod raw;
 mod timestamps;
 mod writer;
 
+pub use bindings::{AggregationReader, BinaryFormatWriter};
 pub use error::{TestAnalyticsError, TestAnalyticsErrorKind};
 pub use format::{Test, TestAnalytics};
 pub use raw::CommitHash;

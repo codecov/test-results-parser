@@ -8,9 +8,10 @@ name = "test_results_parser"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+anyhow = "1.0.94"
+base16ct = { version = "0.2.0", features = ["std"] }
 indexmap = "2.6.0"
-# Version 0.23 currently suffers from https://github.com/PyO3/pyo3/issues/4723
-pyo3 = { version = "0.22.6", features = ["abi3-py312"] }
+pyo3 = { version = "0.23.3", features = ["abi3-py312", "anyhow"] }
 quick-xml = "0.37.1"
 regex = "1.11.1"
 rinja = "0.3.5"

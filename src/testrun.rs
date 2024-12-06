@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use pyo3::class::basic::CompareOp;
-use pyo3::{prelude::*, pyclass};
+use pyo3::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 // See https://github.com/PyO3/pyo3/issues/4723
@@ -76,12 +76,6 @@ pub fn check_testsuites_name(testsuites_name: &str) -> Option<Framework> {
         })
         .next()
 }
-
-// testrun is unique on:
-// - testsuite
-// - classname
-// - name
-// the UI shows `computed_name`
 
 #[derive(Clone, Debug, PartialEq)]
 #[pyclass]
