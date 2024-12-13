@@ -13,24 +13,6 @@ The CI uses the maturin-action to build wheels and an sdist
 
 The version of the wheels built are determined by the value of the version in the cargo.toml
 
-There are 2 parsing function currently implemented:
+`parse_raw_upload`: this parses an entire raw test results upload
 
-- `parse_junit_xml`: this parses `junit.xml` files
-- `parse_pytest_reportlog`: this parses files produced by the `pytest-reportlog` extension
-
-Both these functions take the path to the file to parse as an arg and return a list of `Testrun` objects.
-
-The `Testrun` objects look like this:
-```
-Outcome:
-    Pass,
-    Failure,
-    Error,
-    Skip
-
-Testrun:
-    name: str
-    outcome: Outcome
-    duration: float
-    testsuite: str
-```
+this function takes in the raw upload bytes and returns a message packed list of Testrun objects

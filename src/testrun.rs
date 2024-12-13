@@ -1,40 +1,13 @@
 use std::fmt::Display;
 
-use pyo3::class::basic::CompareOp;
-use pyo3::{prelude::*, pyclass};
+use serde::Serialize;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-// See https://github.com/PyO3/pyo3/issues/4723
-#[allow(ambiguous_associated_items)]
-#[pyclass(eq, eq_int)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub enum Outcome {
     Pass,
     Error,
     Failure,
     Skip,
-}
-
-#[pymethods]
-impl Outcome {
-    #[new]
-    fn new(value: &str) -> Self {
-        match value {
-            "pass" => Outcome::Pass,
-            "failure" => Outcome::Failure,
-            "error" => Outcome::Error,
-            "skip" => Outcome::Skip,
-            _ => Outcome::Failure,
-        }
-    }
-
-    fn __str__(&self) -> &str {
-        match &self {
-            Outcome::Pass => "pass",
-            Outcome::Failure => "failure",
-            Outcome::Error => "error",
-            Outcome::Skip => "skip",
-        }
-    }
 }
 
 impl Display for Outcome {
@@ -77,26 +50,16 @@ pub fn check_testsuites_name(testsuites_name: &str) -> Option<Framework> {
         .next()
 }
 
-#[derive(Clone, Debug, PartialEq)]
-#[pyclass]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Testrun {
-    #[pyo3(get, set)]
     pub name: String,
-    #[pyo3(get, set)]
     pub classname: String,
-    #[pyo3(get, set)]
     pub duration: Option<f64>,
-    #[pyo3(get, set)]
     pub outcome: Outcome,
-    #[pyo3(get, set)]
     pub testsuite: String,
-    #[pyo3(get, set)]
     pub failure_message: Option<String>,
-    #[pyo3(get, set)]
     pub filename: Option<String>,
-    #[pyo3(get, set)]
     pub build_url: Option<String>,
-    #[pyo3(get, set)]
     pub computed_name: Option<String>,
 }
 
@@ -131,83 +94,12 @@ impl Testrun {
     }
 }
 
-#[pymethods]
-impl Testrun {
-    #[allow(clippy::too_many_arguments)]
-    #[new]
-    #[pyo3(signature = (name, classname, duration, outcome, testsuite, failure_message=None, filename=None, build_url=None, computed_name=None))]
-    fn new(
-        name: String,
-        classname: String,
-        duration: Option<f64>,
-        outcome: Outcome,
-        testsuite: String,
-        failure_message: Option<String>,
-        filename: Option<String>,
-        build_url: Option<String>,
-        computed_name: Option<String>,
-    ) -> Self {
-        Self {
-            name,
-            classname,
-            duration,
-            outcome,
-            testsuite,
-            failure_message,
-            filename,
-            build_url,
-            computed_name,
-        }
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "({}, {}, {}, {:?}, {}, {:?}, {:?}, {:?})",
-            self.name,
-            self.classname,
-            self.outcome,
-            self.duration,
-            self.testsuite,
-            self.failure_message,
-            self.filename,
-            self.computed_name,
-        )
-    }
-
-    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
-        match op {
-            CompareOp::Eq => Ok(self.name == other.name
-                && self.classname == other.classname
-                && self.outcome == other.outcome
-                && self.duration == other.duration
-                && self.testsuite == other.testsuite
-                && self.failure_message == other.failure_message
-                && self.filename == other.filename
-                && self.computed_name == other.computed_name),
-            _ => todo!(),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[pyclass(eq, eq_int)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub enum Framework {
     Pytest,
     Vitest,
     Jest,
     PHPUnit,
-}
-
-#[pymethods]
-impl Framework {
-    fn __str__(&self) -> &str {
-        match &self {
-            Framework::Pytest => "Pytest",
-            Framework::Vitest => "Vitest",
-            Framework::Jest => "Jest",
-            Framework::PHPUnit => "PHPUnit",
-        }
-    }
 }
 
 impl Display for Framework {
@@ -221,38 +113,32 @@ impl Display for Framework {
     }
 }
 
-#[derive(Clone, Debug)]
-#[pyclass]
+#[derive(Clone, Debug, Serialize)]
 pub struct ParsingInfo {
-    #[pyo3(get, set)]
     pub framework: Option<Framework>,
-    #[pyo3(get, set)]
     pub testruns: Vec<Testrun>,
 }
 
-#[pymethods]
-impl ParsingInfo {
-    #[new]
-    #[pyo3(signature = (framework, testruns))]
-    fn new(framework: Option<Framework>, testruns: Vec<Testrun>) -> Self {
-        Self {
-            framework,
-            testruns,
-        }
-    }
+#[derive(Clone, Debug, Serialize, Default)]
+pub struct Failure {
+    pub duration: Option<f64>,
+    pub message: String,
+}
 
-    fn __repr__(&self) -> String {
-        format!("({:?}, {:?})", self.framework, self.testruns)
-    }
+#[derive(Clone, Debug, Serialize, Default)]
 
-    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
-        match op {
-            CompareOp::Eq => {
-                Ok(self.framework == other.framework && self.testruns == other.testruns)
-            }
-            _ => todo!(),
-        }
-    }
+pub struct PRCommentSummary {
+    pub passed_num: usize,
+    pub failed_num: usize,
+    pub skipped_num: usize,
+    pub failures: Vec<Failure>,
+    pub flaky_failures: Vec<Failure>,
+}
+
+#[derive(Clone, Debug, Serialize, Default)]
+pub struct FlakeDetectionSummary {
+    pub passed: Vec<String>,
+    pub failed: Vec<String>,
 }
 
 #[cfg(test)]
