@@ -307,7 +307,7 @@ tests/test_parsers.py:16: AssertionError""",
                 ],
                 "test_result_files": [
                     {
-                        "name": filename,
+                        "filename": filename,
                         "format": "base64+compressed",
                         "data": base64.b64encode(zlib.compress(file_bytes)).decode(
                             "utf-8"
@@ -316,7 +316,7 @@ tests/test_parsers.py:16: AssertionError""",
                 ]
             }
             json_bytes = json.dumps(thing).encode("utf-8")
-            msgpack_bytes = parse_raw_upload(json_bytes)
+            msgpack_bytes, readable_files_bytes = parse_raw_upload(json_bytes)
 
             def decode_list_parsing_info(obj):
                 if "outcome" in obj:
@@ -326,6 +326,11 @@ tests/test_parsers.py:16: AssertionError""",
             res_list = msgpack.unpackb(
                 bytes(msgpack_bytes), object_hook=decode_list_parsing_info
             )
+
+            readable_files = bytes(readable_files_bytes)
+
+            assert readable_files == f"""# path={filename}\n{file_bytes.decode()}\n<<<<<< EOF\n""".encode()
+            
 
             assert res_list[0]["framework"] == expected["framework"]
             assert res_list[0]["testruns"] == expected["testruns"]
