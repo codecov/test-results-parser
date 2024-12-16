@@ -8,7 +8,7 @@ use flate2::bufread::ZlibDecoder;
 use quick_xml::events::attributes::Attributes;
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::reader::Reader;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::Deserialize;
 
 use crate::compute_name::{compute_name, unescape_str};
 use crate::testrun::{check_testsuites_name, Framework, Outcome, ParsingInfo, Testrun};
@@ -30,7 +30,7 @@ struct RawTestResultUpload {
     test_result_files: Vec<TestResultFile>,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 struct ReadableFile {
     filename: Vec<u8>,
     data: Vec<u8>,
