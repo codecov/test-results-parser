@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use pyo3::class::basic::CompareOp;
-use pyo3::{prelude::*, pyclass};
+use pyo3::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 // See https://github.com/PyO3/pyo3/issues/4723
