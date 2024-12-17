@@ -86,15 +86,18 @@ impl<'data> TestAnalytics<'data> {
     pub fn tests(
         &self,
         desired_range: Range<usize>,
-        flag: Option<&str>,
-    ) -> Result<impl Iterator<Item = Test<'data, '_>> + '_, TestAnalyticsError> {
-        let matching_flags_sets = if let Some(flag) = flag {
+        flags: Option<&[&str]>,
+    ) -> Result<
+        impl Iterator<Item = Result<Test<'data, '_>, TestAnalyticsError>> + '_,
+        TestAnalyticsError,
+    > {
+        let matching_flags_sets = if let Some(flags) = flags {
             let flag_sets = self.flags_set.iter(self.string_bytes);
 
             let mut matching_flags_sets: SmallVec<u32, 4> = Default::default();
             for res in flag_sets {
-                let (offset, flags) = res?;
-                if flags.contains(&flag) {
+                let (offset, flag_set) = res?;
+                if flags.iter().any(|flag| flag_set.contains(&flag.as_ref())) {
                     matching_flags_sets.push(offset);
                 }
             }
@@ -132,11 +135,11 @@ impl<'data> TestAnalytics<'data> {
                 &self.testdata[adjusted_range],
             );
 
-            Some(Test {
+            Some(aggregates.map(|aggregates| Test {
                 container: self,
                 data: test,
                 aggregates,
-            })
+            }))
         });
         Ok(tests)
     }
@@ -211,7 +214,7 @@ impl Aggregates {
         commithashes_bytes: &[u8],
         all_failing_commits: &mut HashSet<CommitHash>,
         data: &[raw::TestData],
-    ) -> Self {
+    ) -> Result<Self, TestAnalyticsError> {
         let mut total_pass_count = 0;
         let mut total_fail_count = 0;
         let mut total_skip_count = 0;
@@ -225,10 +228,8 @@ impl Aggregates {
             total_flaky_fail_count += testdata.total_flaky_fail_count as u32;
             total_duration += testdata.total_duration as f64;
 
-            // TODO: make sure we validate this data ahead of time!
             let failing_commits =
-                CommitHashesSet::read_raw(commithashes_bytes, testdata.failing_commits_set)
-                    .unwrap();
+                CommitHashesSet::read_raw(commithashes_bytes, testdata.failing_commits_set)?;
             all_failing_commits.extend(failing_commits);
         }
 
@@ -246,7 +247,7 @@ impl Aggregates {
             (0., 0., 0.)
         };
 
-        Aggregates {
+        Ok(Aggregates {
             total_pass_count,
             total_fail_count,
             total_skip_count,
@@ -258,6 +259,6 @@ impl Aggregates {
             avg_duration,
 
             failing_commits,
-        }
+        })
     }
 }

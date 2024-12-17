@@ -7,7 +7,7 @@ mod raw;
 mod timestamps;
 mod writer;
 
-pub use bindings::{AggregationReader, BinaryFormatWriter};
+pub use bindings::{AggregationReader, BinaryFormatWriter, TestAggregate};
 pub use error::{TestAnalyticsError, TestAnalyticsErrorKind};
 pub use format::{Test, TestAnalytics};
 pub use raw::CommitHash;
@@ -71,14 +71,14 @@ mod tests {
         let parsed = TestAnalytics::parse(&buf, 0).unwrap();
         let mut tests = parsed.tests(0..60, None).unwrap();
 
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
         let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
         assert_eq!(aggregates.total_fail_count, 1);
         assert_eq!(aggregates.avg_duration, 1.5);
 
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "def");
         let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_skip_count, 1);
@@ -103,11 +103,11 @@ mod tests {
         let parsed = TestAnalytics::parse(&buf, 0).unwrap();
         let mut tests = parsed.tests(0..60, None).unwrap();
 
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.testsuite().unwrap(), "");
         assert_eq!(abc.name().unwrap(), "abc");
 
-        let abc_with_testsuite = tests.next().unwrap();
+        let abc_with_testsuite = tests.next().unwrap().unwrap();
         assert_eq!(abc_with_testsuite.testsuite().unwrap(), "some testsuite");
         assert_eq!(abc_with_testsuite.name().unwrap(), "abc");
 
@@ -131,7 +131,7 @@ mod tests {
         let parsed = TestAnalytics::parse(&buf, 0).unwrap();
         let mut tests = parsed.tests(0..1, None).unwrap();
 
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
         let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
@@ -149,7 +149,7 @@ mod tests {
         // the data should be in the "yesterday" bucket
         let mut tests = parsed.tests(1..2, None).unwrap();
 
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
         let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
@@ -183,7 +183,7 @@ mod tests {
 
         // we should have data in the "today" bucket
         let mut tests = parsed.tests(0..1, None).unwrap();
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
         let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
@@ -192,7 +192,7 @@ mod tests {
 
         // as well as in the "yesterday" bucket
         let mut tests = parsed.tests(1..2, None).unwrap();
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
         let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
@@ -233,7 +233,7 @@ mod tests {
 
         // we should have data in the "today" bucket
         let mut tests = parsed.tests(0..1, None).unwrap();
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
         let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
@@ -242,7 +242,7 @@ mod tests {
 
         // as well as in the "yesterday" bucket
         let mut tests = parsed.tests(1..2, None).unwrap();
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
         let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
@@ -279,7 +279,7 @@ mod tests {
         // nothing garbage collected yet,
         // we should have data in the "yesterday" bucket
         let mut tests = parsed.tests(1..2, None).unwrap();
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
         let aggregates = abc.aggregates();
         assert_eq!(aggregates.total_pass_count, 1);
@@ -319,25 +319,25 @@ mod tests {
         let mut tests = parsed.tests(0..60, None).unwrap();
 
         // we get the test twice, with two different flags
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
         assert_eq!(abc.flags().unwrap(), &["flag-a"]);
 
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
         assert_eq!(abc.flags().unwrap(), &["flag-b"]);
 
         assert!(tests.next().is_none());
 
         // if we filter for flags, we get only matching tests:
-        let mut tests = parsed.tests(0..60, Some("flag-a")).unwrap();
+        let mut tests = parsed.tests(0..60, Some(&["flag-a"])).unwrap();
 
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
         assert_eq!(abc.flags().unwrap(), &["flag-a"]);
         assert!(tests.next().is_none());
 
-        let mut tests = parsed.tests(0..60, Some("non-existing")).unwrap();
+        let mut tests = parsed.tests(0..60, Some(&["non-existing"])).unwrap();
         assert!(tests.next().is_none());
     }
 
@@ -364,13 +364,13 @@ mod tests {
 
         // when filtering for "yesterday", we get valid data
         let mut tests = parsed.tests(1..2, None).unwrap();
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
         assert!(tests.next().is_none());
 
         // also when filtering for two days prior to that
         let mut tests = parsed.tests(2..4, None).unwrap();
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.name().unwrap(), "abc");
         assert!(tests.next().is_none());
 
@@ -425,17 +425,17 @@ mod tests {
         let parsed = TestAnalytics::parse(&buf, 3 * DAY).unwrap();
 
         let mut tests = parsed.tests(0..1, None).unwrap();
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.aggregates().failing_commits, 1); // commit 4
         assert!(tests.next().is_none());
 
         let mut tests = parsed.tests(2..3, None).unwrap();
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.aggregates().failing_commits, 2); // commit 1, commit 2
         assert!(tests.next().is_none());
 
         let mut tests = parsed.tests(0..60, None).unwrap();
-        let abc = tests.next().unwrap();
+        let abc = tests.next().unwrap().unwrap();
         assert_eq!(abc.aggregates().failing_commits, 4); // commit 1 - 4
         assert!(tests.next().is_none());
     }
