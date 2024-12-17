@@ -97,7 +97,7 @@ impl<'data> TestAnalytics<'data> {
             let mut matching_flags_sets: SmallVec<u32, 4> = Default::default();
             for res in flag_sets {
                 let (offset, flag_set) = res?;
-                if flags.iter().any(|flag| flag_set.contains(&flag.as_ref())) {
+                if flags.iter().any(|flag| flag_set.contains(flag)) {
                     matching_flags_sets.push(offset);
                 }
             }

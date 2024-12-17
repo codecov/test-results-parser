@@ -15,6 +15,7 @@ pub struct BinaryFormatWriter {
 #[pymethods]
 impl BinaryFormatWriter {
     #[new]
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             writer: Some(TestAnalyticsWriter::new(60)),
@@ -111,7 +112,7 @@ impl AggregationReader {
         let format = TestAnalytics::parse(&buffer, timestamp)?;
         // SAFETY: the lifetime of `TestAnalytics` depends on `buffer`,
         // which we do not mutate, and which outlives the parsed format.
-        let format = unsafe { transmute(format) };
+        let format = unsafe { transmute::<TestAnalytics<'_>, TestAnalytics<'_>>(format) };
 
         Ok(Self {
             _buffer: buffer,
