@@ -4,8 +4,6 @@ use pyo3::class::basic::CompareOp;
 use pyo3::{prelude::*, pyclass};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-// See https://github.com/PyO3/pyo3/issues/4723
-#[allow(ambiguous_associated_items)]
 #[pyclass(eq, eq_int)]
 pub enum Outcome {
     Pass,
