@@ -1,5 +1,6 @@
+/.*_cache
+/.venv
+/*.xml
 /target
-.venv
 __pycache__
 .coverage
-/*.xml
