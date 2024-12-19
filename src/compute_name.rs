@@ -105,6 +105,14 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_name_with_filename_classname() {
+        assert_eq!(
+            compute_name("a.b.c", "d", Framework::Pytest, Some("a/b.py"), None),
+            "a/b.py::c::d"
+        );
+    }
+
+    #[test]
     fn test_compute_name_with_network() {
         let network = ["a/b/c.py"].iter().map(|e| e.to_string()).collect();
         assert_eq!(
