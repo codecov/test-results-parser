@@ -1,4 +1,5 @@
 use pyo3::prelude::*;
+use std::collections::HashSet;
 
 use quick_xml::events::attributes::Attributes;
 use quick_xml::events::{BytesStart, Event};
@@ -52,6 +53,7 @@ fn populate(
     testsuite: String,
     testsuite_time: Option<&str>,
     framework: Option<Framework>,
+    network: Option<&HashSet<String>>,
 ) -> PyResult<(Testrun, Option<Framework>)> {
     let classname = rel_attrs.classname.unwrap_or_default();
 
@@ -79,7 +81,7 @@ fn populate(
 
     let framework = framework.or_else(|| t.framework());
     if let Some(f) = framework {
-        let computed_name = compute_name(&t.classname, &t.name, f, t.filename.as_deref());
+        let computed_name = compute_name(&t.classname, &t.name, f, t.filename.as_deref(), network);
         t.computed_name = Some(computed_name);
     };
 
@@ -90,12 +92,12 @@ fn populate(
 pub fn parse_junit_xml(file_bytes: &[u8]) -> PyResult<ParsingInfo> {
     let mut reader = Reader::from_reader(file_bytes);
     reader.config_mut().trim_text(true);
-    let thing = use_reader(&mut reader).map_err(|e| {
+    let reader_result = use_reader(&mut reader, None).map_err(|e| {
         let pos = reader.buffer_position();
         let (line, col) = get_position_info(file_bytes, pos.try_into().unwrap());
         ParserError::new_err(format!("Error at {}:{}: {}", line, col, e))
     })?;
-    Ok(thing)
+    Ok(reader_result)
 }
 
 pub fn get_position_info(input: &[u8], byte_offset: usize) -> (usize, usize) {
@@ -114,7 +116,10 @@ pub fn get_position_info(input: &[u8], byte_offset: usize) -> (usize, usize) {
     (line, column)
 }
 
-fn use_reader(reader: &mut Reader<&[u8]>) -> PyResult<ParsingInfo> {
+pub fn use_reader(
+    reader: &mut Reader<&[u8]>,
+    network: Option<&HashSet<String>>,
+) -> PyResult<ParsingInfo> {
     let mut testruns: Vec<Testrun> = Vec::new();
     let mut saved_testrun: Option<Testrun> = None;
 
@@ -154,6 +159,7 @@ fn use_reader(reader: &mut Reader<&[u8]>) -> PyResult<ParsingInfo> {
                             .unwrap_or_default(),
                         testsuite_times.iter().rev().find_map(|e| e.as_deref()),
                         framework,
+                        network,
                     )?;
                     saved_testrun = Some(testrun);
                     framework = parsed_framework;
@@ -225,6 +231,7 @@ fn use_reader(reader: &mut Reader<&[u8]>) -> PyResult<ParsingInfo> {
                             .unwrap_or_default(),
                         testsuite_times.iter().rev().find_map(|e| e.as_deref()),
                         framework,
+                        network,
                     )?;
                     testruns.push(testrun);
                     framework = parsed_framework;
