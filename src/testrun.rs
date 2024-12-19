@@ -3,6 +3,8 @@ use std::fmt::Display;
 use pyo3::class::basic::CompareOp;
 use pyo3::{prelude::*, pyclass};
 
+use serde::Serialize;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 // See https://github.com/PyO3/pyo3/issues/4723
 #[allow(ambiguous_associated_items)]
@@ -37,13 +39,22 @@ impl Outcome {
     }
 }
 
+impl Serialize for Outcome {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
 impl Display for Outcome {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
-            Outcome::Pass => write!(f, "Pass"),
-            Outcome::Failure => write!(f, "Failure"),
-            Outcome::Error => write!(f, "Error"),
-            Outcome::Skip => write!(f, "Skip"),
+            Outcome::Pass => write!(f, "pass"),
+            Outcome::Failure => write!(f, "failure"),
+            Outcome::Error => write!(f, "error"),
+            Outcome::Skip => write!(f, "skip"),
         }
     }
 }
@@ -77,7 +88,7 @@ pub fn check_testsuites_name(testsuites_name: &str) -> Option<Framework> {
         .next()
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[pyclass]
 pub struct Testrun {
     #[pyo3(get, set)]
@@ -189,7 +200,7 @@ impl Testrun {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[pyclass(eq, eq_int)]
 pub enum Framework {
     Pytest,
@@ -221,7 +232,7 @@ impl Display for Framework {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 #[pyclass]
 pub struct ParsingInfo {
     #[pyo3(get, set)]
