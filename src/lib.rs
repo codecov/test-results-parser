@@ -4,6 +4,7 @@ use pyo3::prelude::*;
 pub mod binary;
 mod compute_name;
 mod failure_message;
+mod filetree;
 mod junit;
 mod raw_upload;
 mod testrun;
