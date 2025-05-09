@@ -1,0 +1,10 @@
+---
+source: src/raw_upload.rs
+expression: results
+input_file: tests/warnings-junit.xml
+---
+- framework: Jest
+  testruns: []
+  warnings:
+    - "Error validating classname ending at 7:65 in warnings-junit.xml"
+    - "Error validating classname ending at 11:65 in warnings-junit.xml"

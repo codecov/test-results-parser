@@ -5,3 +5,4 @@ input_file: tests/testsuites.xml
 ---
 - framework: ~
   testruns: []
+  warnings: []

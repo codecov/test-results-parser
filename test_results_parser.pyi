@@ -1,4 +1,4 @@
-from typing import TypedDict, Literal
+from typing import Literal, TypedDict
 
 class Testrun(TypedDict):
     name: str
@@ -14,5 +14,6 @@ class Testrun(TypedDict):
 class ParsingInfo(TypedDict):
     framework: Literal["Pytest", "Jest", "Vitest", "PHPUnit"] | None
     testruns: list[Testrun]
+    warnings: list[str]
 
 def parse_raw_upload(raw_upload_bytes: bytes) -> tuple[list[ParsingInfo], bytes]: ...

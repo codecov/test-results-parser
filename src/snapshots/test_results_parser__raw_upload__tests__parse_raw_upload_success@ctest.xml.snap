@@ -14,3 +14,4 @@ input_file: tests/ctest.xml
       filename: ~
       build_url: ~
       computed_name: "a_unit_test::a_unit_test"
+  warnings: []

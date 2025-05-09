@@ -23,3 +23,4 @@ input_file: tests/empty_failure.junit.xml
       filename: "./test.rb"
       build_url: ~
       computed_name: "test.test::test.test fails"
+  warnings: []

@@ -5,3 +5,4 @@ input_file: tests/windows.junit.xml
 ---
 - framework: ~
   testruns: []
+  warnings: []

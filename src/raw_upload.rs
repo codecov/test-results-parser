@@ -12,6 +12,7 @@ use serde::Deserialize;
 
 use crate::junit::{get_position_info, use_reader};
 use crate::testrun::ParsingInfo;
+use crate::warning::WarningInfo;
 
 #[derive(Deserialize, Debug, Clone)]
 struct TestResultFile {
@@ -48,6 +49,36 @@ fn serialize_to_legacy_format(readable_files: Vec<ReadableFile>) -> Vec<u8> {
     res
 }
 
+// the warnings should be ordered by location because they're pushed to the vec as we parse
+// so we can guarantee that warning[x].location >= warning[x - 1].location
+// implicitly tested by warnings-junit.xml
+fn format_warnings(input: &[u8], warnings: Vec<WarningInfo>, filename: &str) -> Vec<String> {
+    let mut offset = 0;
+    let mut result = Vec::new();
+    let mut line = 1;
+    let mut col = 0;
+    let mut input_iter = input.iter();
+    for warning in warnings {
+        for bytes in input_iter
+            .by_ref()
+            .take((warning.location - offset) as usize)
+        {
+            if *bytes == b'\n' {
+                line += 1;
+                col = 0;
+            } else {
+                col += 1;
+            }
+        }
+        offset += warning.location;
+        result.push(format!(
+            "{} ending at {}:{} in {}",
+            warning.message, line, col, filename
+        ));
+    }
+    result
+}
+
 #[pyfunction]
 #[pyo3(signature = (raw_upload_bytes))]
 pub fn parse_raw_upload(raw_upload_bytes: &[u8]) -> anyhow::Result<(Vec<ParsingInfo>, Vec<u8>)> {
@@ -72,21 +103,30 @@ pub fn parse_raw_upload(raw_upload_bytes: &[u8]) -> anyhow::Result<(Vec<ParsingI
 
         let mut reader = Reader::from_reader(decompressed_file_bytes.as_slice());
         reader.config_mut().trim_text(true);
-        let reader_result = use_reader(&mut reader, network.as_ref()).with_context(|| {
-            let pos_conversion = reader.buffer_position().try_into();
-            match pos_conversion {
-                Ok(pos) => {
-                    let (line, col) = get_position_info(&decompressed_file_bytes, pos);
-                    format!(
-                        "Error parsing JUnit XML in {} at {}:{}",
-                        file.filename, line, col
-                    )
+        let (framework, testruns, warnings) = use_reader(&mut reader, network.as_ref())
+            .with_context(|| {
+                let pos_conversion = reader.buffer_position().try_into();
+                match pos_conversion {
+                    Ok(pos) => {
+                        let (line, col) = get_position_info(&decompressed_file_bytes, pos);
+                        format!(
+                            "Error parsing JUnit XML in {} at {}:{}",
+                            file.filename, line, col
+                        )
+                    }
+                    Err(_) => format!("Error parsing JUnit XML in {}", file.filename),
                 }
-                Err(_) => format!("Error parsing JUnit XML in {}", file.filename),
-            }
-        })?;
+            })?;
 
-        results.push(reader_result);
+        let warning_strings: Vec<String> =
+            format_warnings(&decompressed_file_bytes, warnings, &file.filename);
+
+        let parsing_info = ParsingInfo {
+            framework,
+            testruns,
+            warnings: warning_strings,
+        };
+        results.push(parsing_info);
 
         let readable_file = ReadableFile {
             data: decompressed_file_bytes,

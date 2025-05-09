@@ -170,6 +170,7 @@ impl Testrun {
 pub struct ParsingInfo {
     pub framework: Option<Framework>,
     pub testruns: Vec<Testrun>,
+    pub warnings: Vec<String>,
 }
 
 #[cfg(test)]

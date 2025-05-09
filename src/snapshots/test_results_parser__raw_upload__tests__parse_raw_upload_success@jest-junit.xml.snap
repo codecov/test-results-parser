@@ -41,3 +41,4 @@ input_file: tests/jest-junit.xml
       filename: ~
       build_url: ~
       computed_name: Title when rendered for first pull request renders pull title
+  warnings: []

@@ -24,6 +24,7 @@
         "build_url": null,
         "computed_name": "tests.test_parsers.TestParsers::test_junit[jest-junit.xml--False]"
       }
-    ]
+    ],
+    "warnings": []
   }
 ]

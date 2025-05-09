@@ -8,6 +8,7 @@ mod junit;
 mod raw_upload;
 mod testrun;
 mod validated_string;
+mod warning;
 
 pub use testrun::{Outcome, Testrun};
 pub use validated_string::ValidatedString;
