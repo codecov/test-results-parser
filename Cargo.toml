@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 anyhow = "1.0.94"
 base16ct = { version = "0.2.0", features = ["std"] }
 indexmap = "2.6.0"
-pyo3 = { version = "0.24.1", features = ["abi3-py310", "anyhow"] }
+pyo3 = { version = "0.24.1", features = ["abi3-py39", "anyhow"] }
 quick-xml = "0.37.1"
 regex = "1.11.1"
 serde = { version = "1.0.215", features = ["derive"] }

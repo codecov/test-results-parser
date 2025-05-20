@@ -59,8 +59,8 @@ impl<'py> IntoPyObject<'py> for Outcome {
 
 impl<'py> FromPyObject<'py> for Outcome {
     fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let s = ob.extract::<&str>()?;
-        match s {
+        let s = ob.extract::<String>()?;
+        match s.as_str() {
             "pass" => Ok(Outcome::Pass),
             "failure" => Ok(Outcome::Failure),
             "skip" => Ok(Outcome::Skip),
@@ -98,8 +98,8 @@ impl<'py> IntoPyObject<'py> for Framework {
 
 impl<'py> FromPyObject<'py> for Framework {
     fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let s = ob.extract::<&str>()?;
-        match s {
+        let s = ob.extract::<String>()?;
+        match s.as_str() {
             "Pytest" => Ok(Framework::Pytest),
             "Vitest" => Ok(Framework::Vitest),
             "Jest" => Ok(Framework::Jest),
