@@ -8,14 +8,14 @@ use quick_xml::reader::Reader;
 
 use crate::compute_name::{compute_name, unescape_str};
 use crate::testrun::{check_testsuites_name, Framework, Outcome, Testrun};
-use crate::validated_string::ValidatedString;
+use crate::validated_string::{ValidatedString, ValidatedStringError};
 use crate::warning::WarningInfo;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 enum ParseAttrsError {
-    #[error("Limit of string is 1000 chars, for {0}, we got {1}")]
-    AttrTooLong(&'static str, usize),
+    #[error("Length limit of {0} is 1000 chars, we got {1} chars:\n\n{2}")]
+    AttrTooLong(&'static str, usize, String),
     #[error("Error converting attribute {0} to UTF-8 string")]
     ConversionError(&'static str),
     #[error("Missing name attribute in testcase")]
@@ -36,8 +36,11 @@ fn extract_validated_string(
     let unvalidated_string =
         convert_attribute(attribute).map_err(|_| ParseAttrsError::ConversionError(field_name))?;
     let string_len = unvalidated_string.len();
-    ValidatedString::from_string(unvalidated_string)
-        .map_err(|_| ParseAttrsError::AttrTooLong(field_name, string_len))
+    ValidatedString::from_string(unvalidated_string).map_err(
+        |ValidatedStringError::StringTooLong(leftover)| {
+            ParseAttrsError::AttrTooLong(field_name, string_len, leftover)
+        },
+    )
 }
 
 struct TestcaseAttrs {
@@ -212,7 +215,7 @@ pub fn use_reader(
                             framework = parsed_framework;
                         }
                         Err(error) => match error {
-                            ParseAttrsError::AttrTooLong(_, _) => {
+                            ParseAttrsError::AttrTooLong(_, _, _) => {
                                 warnings.push(WarningInfo::new(
                                     format!("Warning while parsing testcase attributes: {}", error),
                                     reader.buffer_position() - e.len() as u64,
@@ -326,9 +329,12 @@ pub fn use_reader(
                             framework = parsed_framework;
                         }
                         Err(error) => match error {
-                            ParseAttrsError::AttrTooLong(_, _) => {
+                            ParseAttrsError::AttrTooLong(_, _, _) => {
                                 warnings.push(WarningInfo::new(
-                                    format!("Warning while parsing testcase attributes: {}", error),
+                                    format!(
+                                        "Warning while parsing testcase attributes:\n{}",
+                                        error
+                                    ),
                                     reader.buffer_position() - e.len() as u64,
                                 ));
                             }

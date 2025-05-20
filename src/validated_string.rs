@@ -1,9 +1,9 @@
 use std::ops::Deref;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use pyo3::{FromPyObject, IntoPyObject};
 use serde::{Deserialize, Serialize};
-
+use thiserror::Error;
 // String that is validated to be less than 1000 characters
 
 #[derive(
@@ -15,10 +15,16 @@ pub struct ValidatedString {
     value: String,
 }
 
+#[derive(Error, Debug)]
+pub enum ValidatedStringError {
+    #[error("String is too long")]
+    StringTooLong(String),
+}
+
 impl ValidatedString {
-    pub fn from_string(value: String) -> Result<Self> {
+    pub fn from_string(value: String) -> Result<Self, ValidatedStringError> {
         if value.len() > 1000 {
-            anyhow::bail!("string is too long");
+            return Err(ValidatedStringError::StringTooLong(value));
         }
         Ok(Self { value })
     }
@@ -33,17 +39,17 @@ impl Deref for ValidatedString {
 }
 
 impl TryFrom<String> for ValidatedString {
-    type Error = anyhow::Error;
+    type Error = ValidatedStringError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::from_string(value).context("Error converting String to ValidatedString")
+        Self::from_string(value)
     }
 }
 
 impl TryFrom<&str> for ValidatedString {
-    type Error = anyhow::Error;
+    type Error = ValidatedStringError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::from_string(value.to_string()).context("Error converting &str to ValidatedString")
+        Self::from_string(value.to_string())
     }
 }
