@@ -71,10 +71,11 @@ fn format_warnings(input: &[u8], warnings: Vec<WarningInfo>, filename: &str) -> 
             }
         }
         offset += warning.location;
-        result.push(format!(
-            "{} at {}:{} in {}",
-            warning.message, line, col, filename
-        ));
+        result.push(if warning.message.contains('\n') {
+            format!("{}\n\nAt {}:{} in {}", warning.message, line, col, filename)
+        } else {
+            format!("{} at {}:{} in {}", warning.message, line, col, filename)
+        });
     }
     result
 }
