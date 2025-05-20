@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 use pyo3::{PyAny, PyResult};
@@ -59,8 +61,8 @@ impl<'py> IntoPyObject<'py> for Outcome {
 
 impl<'py> FromPyObject<'py> for Outcome {
     fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let s = ob.extract::<&str>()?;
-        match s {
+        let s: String = ob.extract()?;
+        match s.as_str() {
             "pass" => Ok(Outcome::Pass),
             "failure" => Ok(Outcome::Failure),
             "skip" => Ok(Outcome::Skip),
@@ -98,14 +100,14 @@ impl<'py> IntoPyObject<'py> for Framework {
 
 impl<'py> FromPyObject<'py> for Framework {
     fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let s = ob.extract::<&str>()?;
-        match s {
+        let s: String = ob.extract()?;
+        match s.as_str() {
             "Pytest" => Ok(Framework::Pytest),
             "Vitest" => Ok(Framework::Vitest),
             "Jest" => Ok(Framework::Jest),
             "PHPUnit" => Ok(Framework::PHPUnit),
             _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Invalid outcome: {}",
+                "Invalid framework: {}",
                 s
             ))),
         }
