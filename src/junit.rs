@@ -10,14 +10,11 @@ use quick_xml::reader::Reader;
 
 use crate::compute_name::{compute_name, unescape_str};
 use crate::testrun::{check_testsuites_name, Framework, Outcome, PropertiesValue, Testrun};
-use crate::validated_string::ValidatedString;
 use crate::warning::WarningInfo;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 enum ParseAttrsError {
-    #[error("Limit of string is 1000 chars, for {0}, we got {1}")]
-    AttrTooLong(&'static str, usize),
     #[error("Error converting attribute {0} to UTF-8 string")]
     ConversionError(&'static str),
     #[error("Missing name attribute in testcase")]
@@ -31,30 +28,19 @@ fn convert_attribute(attribute: Attribute) -> Result<String> {
     Ok(String::from_utf8(bytes)?)
 }
 
-fn extract_validated_string(
-    attribute: Attribute,
-    field_name: &'static str,
-) -> Result<ValidatedString, ParseAttrsError> {
-    let unvalidated_string =
-        convert_attribute(attribute).map_err(|_| ParseAttrsError::ConversionError(field_name))?;
-    let string_len = unvalidated_string.len();
-    ValidatedString::from_string(unvalidated_string)
-        .map_err(|_| ParseAttrsError::AttrTooLong(field_name, string_len))
-}
-
 struct TestcaseAttrs {
-    name: ValidatedString,
+    name: String,
     time: Option<String>,
-    classname: Option<ValidatedString>,
-    file: Option<ValidatedString>,
+    classname: Option<String>,
+    file: Option<String>,
 }
 
 // originally from https://gist.github.com/scott-codecov/311c174ecc7de87f7d7c50371c6ef927#file-cobertura-rs-L18-L31
 fn parse_testcase_attrs(attributes: Attributes) -> Result<TestcaseAttrs, ParseAttrsError> {
-    let mut name: Option<ValidatedString> = None;
+    let mut name: Option<String> = None;
     let mut time: Option<String> = None;
-    let mut classname: Option<ValidatedString> = None;
-    let mut file: Option<ValidatedString> = None;
+    let mut classname: Option<String> = None;
+    let mut file: Option<String> = None;
 
     for attribute in attributes {
         let attribute = attribute.map_err(|_| ParseAttrsError::ParseError)?;
@@ -67,13 +53,22 @@ fn parse_testcase_attrs(attributes: Attributes) -> Result<TestcaseAttrs, ParseAt
                 );
             }
             b"classname" => {
-                classname = Some(extract_validated_string(attribute, "classname")?);
+                classname = Some(
+                    convert_attribute(attribute)
+                        .map_err(|_| ParseAttrsError::ConversionError("classname"))?,
+                );
             }
             b"name" => {
-                name = Some(extract_validated_string(attribute, "name")?);
+                name = Some(
+                    convert_attribute(attribute)
+                        .map_err(|_| ParseAttrsError::ConversionError("name"))?,
+                );
             }
             b"file" => {
-                file = Some(extract_validated_string(attribute, "file")?);
+                file = Some(
+                    convert_attribute(attribute)
+                        .map_err(|_| ParseAttrsError::ConversionError("file"))?,
+                );
             }
             _ => {}
         }
@@ -104,7 +99,7 @@ fn get_attribute(e: &BytesStart, name: &str) -> Result<Option<String>> {
 
 fn populate(
     rel_attrs: TestcaseAttrs,
-    testsuite: ValidatedString,
+    testsuite: String,
     testsuite_time: Option<&str>,
     framework: Option<Framework>,
     network: Option<&HashSet<String>>,
@@ -127,7 +122,7 @@ fn populate(
         failure_message: None,
         filename: file,
         build_url: None,
-        computed_name: ValidatedString::default(),
+        computed_name: String::new(),
         properties: PropertiesValue(None),
     };
 
@@ -139,8 +134,7 @@ fn populate(
         t.filename.as_deref(),
         network,
     );
-    t.computed_name = ValidatedString::from_string(computed_name)
-        .context("Error converting computed name to ValidatedString")?;
+    t.computed_name = computed_name;
 
     Ok((t, framework))
 }
@@ -255,14 +249,9 @@ fn parse_property_element(e: &BytesStart, existing_properties: &mut PropertiesVa
     Ok(())
 }
 
-enum TestrunOrSkipped {
-    Testrun(Testrun),
-    Skipped,
-}
-
 fn handle_property_element(
     e: &BytesStart,
-    saved_testrun: &mut Option<TestrunOrSkipped>,
+    saved_testrun: &mut Option<Testrun>,
     buffer_position: u64,
     warnings: &mut Vec<WarningInfo>,
 ) -> Result<()> {
@@ -270,19 +259,17 @@ fn handle_property_element(
     if saved_testrun.is_none() {
         return Ok(());
     }
-    let saved = saved_testrun
+    let testrun = saved_testrun
         .as_mut()
         .context("Error accessing saved testrun")?;
-    if let TestrunOrSkipped::Testrun(testrun) = saved {
-        if let Err(e) = parse_property_element(e, &mut testrun.properties) {
-            if !e.is::<NotEvalsPropertyError>() {
-                warnings.push(WarningInfo::new(
-                    format!("Error parsing `property` element: {}", e),
-                    buffer_position,
-                ));
-            }
+    if let Err(e) = parse_property_element(e, &mut testrun.properties) {
+        if !e.is::<NotEvalsPropertyError>() {
+            warnings.push(WarningInfo::new(
+                format!("Error parsing `property` element: {}", e),
+                buffer_position,
+            ));
         }
-    };
+    }
     Ok(())
 }
 
@@ -291,7 +278,7 @@ pub fn use_reader(
     network: Option<&HashSet<String>>,
 ) -> PyResult<(Option<Framework>, Vec<Testrun>, Vec<WarningInfo>)> {
     let mut testruns: Vec<Testrun> = Vec::new();
-    let mut saved_testrun: Option<TestrunOrSkipped> = None;
+    let mut saved_testrun: Option<Testrun> = None;
 
     let mut in_failure: bool = false;
     let mut in_error: bool = false;
@@ -303,7 +290,7 @@ pub fn use_reader(
     // every time we come across a testsuite element we update this vector:
     // if the testsuite element contains the time attribute append its value to this vec
     // else append a clone of the last value in the vec
-    let mut testsuite_names: Vec<Option<ValidatedString>> = vec![];
+    let mut testsuite_names: Vec<Option<String>> = vec![];
     let mut testsuite_times: Vec<Option<String>> = vec![];
 
     let mut buf = Vec::new();
@@ -331,78 +318,47 @@ pub fn use_reader(
                                 framework,
                                 network,
                             )?;
-                            saved_testrun = Some(TestrunOrSkipped::Testrun(testrun));
+                            saved_testrun = Some(testrun);
                             framework = parsed_framework;
                         }
-                        Err(error) => match error {
-                            ParseAttrsError::AttrTooLong(_, _) => {
-                                warnings.push(WarningInfo::new(
-                                    format!("Warning while parsing testcase attributes: {}", error),
-                                    reader.buffer_position() - e.len() as u64,
-                                ));
-                                saved_testrun = Some(TestrunOrSkipped::Skipped);
-                            }
-                            _ => {
-                                Err(anyhow::anyhow!(
-                                    "Error parsing testcase attributes: {}",
-                                    error
-                                ))?;
-                            }
-                        },
+                        Err(error) => {
+                            Err(anyhow::anyhow!(
+                                "Error parsing testcase attributes: {}",
+                                error
+                            ))?;
+                        }
                     }
                 }
                 b"skipped" => {
-                    let saved = saved_testrun
+                    let testrun = saved_testrun
                         .as_mut()
-                        .context("Error accessing saved testrun")?;
-                    match saved {
-                        TestrunOrSkipped::Testrun(testrun) => {
-                            testrun.outcome = Outcome::Skip;
-                        }
-                        TestrunOrSkipped::Skipped => {}
-                    }
+                        .context("Encountered <skipped> tag outside of <testcase>")?;
+                    testrun.outcome = Outcome::Skip;
                 }
                 b"error" => {
-                    let saved = saved_testrun
+                    let testrun = saved_testrun
                         .as_mut()
-                        .context("Error accessing saved testrun")?;
-                    match saved {
-                        TestrunOrSkipped::Testrun(testrun) => {
-                            testrun.outcome = Outcome::Error;
+                        .context("Encountered <error> tag outside of <testcase>")?;
+                    testrun.outcome = Outcome::Error;
 
-                            testrun.failure_message = get_attribute(&e, "message")?
-                                .map(|failure_message| unescape_str(&failure_message).into());
-                        }
-                        TestrunOrSkipped::Skipped => {}
-                    }
+                    testrun.failure_message = get_attribute(&e, "message")?
+                        .map(|failure_message| unescape_str(&failure_message).into());
 
                     in_error = true;
                 }
                 b"failure" => {
-                    let saved = saved_testrun
+                    let testrun = saved_testrun
                         .as_mut()
-                        .context("Error accessing saved testrun")?;
-                    match saved {
-                        TestrunOrSkipped::Testrun(testrun) => {
-                            testrun.outcome = Outcome::Failure;
+                        .context("Encountered <failure> tag outside of <testcase>")?;
+                    testrun.outcome = Outcome::Failure;
 
-                            testrun.failure_message = get_attribute(&e, "message")?
-                                .map(|failure_message| unescape_str(&failure_message).into());
-                        }
-                        TestrunOrSkipped::Skipped => {}
-                    }
+                    testrun.failure_message = get_attribute(&e, "message")?
+                        .map(|failure_message| unescape_str(&failure_message).into());
 
                     in_failure = true;
                 }
                 b"testsuite" => {
-                    testsuite_names.push(
-                        get_attribute(&e, "name")?
-                            .map(|s| {
-                                ValidatedString::from_string(s)
-                                    .context("Error converting testsuite name to ValidatedString")
-                            })
-                            .transpose()?,
-                    );
+                    testsuite_names.push(get_attribute(&e, "name")?);
                     testsuite_times.push(get_attribute(&e, "time")?);
                 }
                 b"testsuites" => {
@@ -419,12 +375,12 @@ pub fn use_reader(
             },
             Event::End(e) => match e.name().as_ref() {
                 b"testcase" => {
-                    let saved = saved_testrun.take().context(
-                        "Met testcase closing tag without first meeting testcase opening tag",
-                    )?;
-                    match saved {
-                        TestrunOrSkipped::Testrun(testrun) => testruns.push(testrun),
-                        TestrunOrSkipped::Skipped => {}
+                    if let Some(testrun) = saved_testrun.take() {
+                        testruns.push(testrun);
+                    } else {
+                        Err(anyhow::anyhow!(
+                            "Encountered closing </testcase> tag without corresponding opening <testcase> tag"
+                        ))?;
                     }
                 }
                 b"failure" => in_failure = false,
@@ -454,58 +410,37 @@ pub fn use_reader(
                             testruns.push(testrun);
                             framework = parsed_framework;
                         }
-                        Err(error) => match error {
-                            ParseAttrsError::AttrTooLong(_, _) => {
-                                warnings.push(WarningInfo::new(
-                                    format!("Warning while parsing testcase attributes: {}", error),
-                                    reader.buffer_position() - e.len() as u64,
-                                ));
-                            }
-                            _ => Err(anyhow::anyhow!(
+                        Err(error) => {
+                            Err(anyhow::anyhow!(
                                 "Error parsing testcase attributes: {}",
                                 error
-                            ))?,
-                        },
+                            ))?;
+                        }
                     }
                 }
                 b"failure" => {
-                    let saved = saved_testrun
+                    let testrun = saved_testrun
                         .as_mut()
-                        .context("Error accessing saved testrun")?;
-                    match saved {
-                        TestrunOrSkipped::Testrun(testrun) => {
-                            testrun.outcome = Outcome::Failure;
+                        .context("Encountered <failure/> tag outside of <testcase>")?;
+                    testrun.outcome = Outcome::Failure;
 
-                            testrun.failure_message = get_attribute(&e, "message")?
-                                .map(|failure_message| unescape_str(&failure_message).into());
-                        }
-                        TestrunOrSkipped::Skipped => {}
-                    }
+                    testrun.failure_message = get_attribute(&e, "message")?
+                        .map(|failure_message| unescape_str(&failure_message).into());
                 }
                 b"skipped" => {
-                    let saved = saved_testrun
+                    let testrun = saved_testrun
                         .as_mut()
-                        .context("Error accessing saved testrun")?;
-                    match saved {
-                        TestrunOrSkipped::Testrun(testrun) => {
-                            testrun.outcome = Outcome::Skip;
-                        }
-                        TestrunOrSkipped::Skipped => {}
-                    }
+                        .context("Encountered <skipped/> tag outside of <testcase>")?;
+                    testrun.outcome = Outcome::Skip;
                 }
                 b"error" => {
-                    let saved = saved_testrun
+                    let testrun = saved_testrun
                         .as_mut()
-                        .context("Error accessing saved testrun")?;
-                    match saved {
-                        TestrunOrSkipped::Testrun(testrun) => {
-                            testrun.outcome = Outcome::Error;
+                        .context("Encountered <error/> tag outside of <testcase>")?;
+                    testrun.outcome = Outcome::Error;
 
-                            testrun.failure_message = get_attribute(&e, "message")?
-                                .map(|failure_message| unescape_str(&failure_message).into());
-                        }
-                        TestrunOrSkipped::Skipped => {}
-                    }
+                    testrun.failure_message = get_attribute(&e, "message")?
+                        .map(|failure_message| unescape_str(&failure_message).into());
                 }
                 b"property" => handle_property_element(
                     &e,
@@ -517,19 +452,12 @@ pub fn use_reader(
             },
             Event::Text(mut xml_failure_message) => {
                 if in_failure || in_error {
-                    let saved = saved_testrun
-                        .as_mut()
-                        .context("Error accessing saved testrun")?;
-                    match saved {
-                        TestrunOrSkipped::Testrun(testrun) => {
-                            xml_failure_message.inplace_trim_end();
-                            xml_failure_message.inplace_trim_start();
+                    if let Some(testrun) = saved_testrun.as_mut() {
+                        xml_failure_message.inplace_trim_end();
+                        xml_failure_message.inplace_trim_start();
 
-                            testrun.failure_message = Some(
-                                unescape_str(std::str::from_utf8(&xml_failure_message)?).into(),
-                            );
-                        }
-                        TestrunOrSkipped::Skipped => {}
+                        testrun.failure_message =
+                            Some(unescape_str(std::str::from_utf8(&xml_failure_message)?).into());
                     }
                 }
             }

@@ -4,8 +4,6 @@ use pyo3::{PyAny, PyResult};
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::validated_string::ValidatedString;
-
 static FRAMEWORKS: [(&str, Framework); 4] = [
     ("pytest", Framework::Pytest),
     ("vitest", Framework::Vitest),
@@ -154,23 +152,23 @@ impl<'py> FromPyObject<'py> for PropertiesValue {
 #[derive(IntoPyObject, FromPyObject, Clone, Debug, Serialize, PartialEq)]
 pub struct Testrun {
     #[pyo3(item)]
-    pub name: ValidatedString,
+    pub name: String,
     #[pyo3(item)]
-    pub classname: ValidatedString,
+    pub classname: String,
     #[pyo3(item)]
     pub duration: Option<f64>,
     #[pyo3(item)]
     pub outcome: Outcome,
     #[pyo3(item)]
-    pub testsuite: ValidatedString,
+    pub testsuite: String,
     #[pyo3(item)]
     pub failure_message: Option<String>,
     #[pyo3(item)]
-    pub filename: Option<ValidatedString>,
+    pub filename: Option<String>,
     #[pyo3(item)]
     pub build_url: Option<String>,
     #[pyo3(item)]
-    pub computed_name: ValidatedString,
+    pub computed_name: String,
     #[pyo3(item)]
     pub properties: PropertiesValue,
 }
@@ -237,15 +235,15 @@ mod tests {
     #[test]
     fn test_detect_framework_testsuite_name() {
         let t = Testrun {
-            classname: ValidatedString::default(),
-            name: ValidatedString::default(),
+            classname: String::new(),
+            name: String::new(),
             duration: None,
             outcome: Outcome::Pass,
-            testsuite: "pytest".try_into().unwrap(),
+            testsuite: "pytest".to_string(),
             failure_message: None,
             filename: None,
             build_url: None,
-            computed_name: ValidatedString::default(),
+            computed_name: String::new(),
             properties: PropertiesValue(None),
         };
         assert_eq!(t.framework(), Some(Framework::Pytest))
@@ -254,15 +252,15 @@ mod tests {
     #[test]
     fn test_detect_framework_filenames() {
         let t = Testrun {
-            classname: ValidatedString::default(),
-            name: ValidatedString::default(),
+            classname: String::new(),
+            name: String::new(),
             duration: None,
             outcome: Outcome::Pass,
-            testsuite: ValidatedString::default(),
+            testsuite: String::new(),
             failure_message: None,
-            filename: Some(".py".try_into().unwrap()),
+            filename: Some(".py".to_string()),
             build_url: None,
-            computed_name: ValidatedString::default(),
+            computed_name: String::new(),
             properties: PropertiesValue(None),
         };
         assert_eq!(t.framework(), Some(Framework::Pytest))
@@ -271,15 +269,15 @@ mod tests {
     #[test]
     fn test_detect_framework_example_classname() {
         let t = Testrun {
-            classname: ".py".try_into().unwrap(),
-            name: ValidatedString::default(),
+            classname: ".py".to_string(),
+            name: String::new(),
             duration: None,
             outcome: Outcome::Pass,
-            testsuite: ValidatedString::default(),
+            testsuite: String::new(),
             failure_message: None,
             filename: None,
             build_url: None,
-            computed_name: ValidatedString::default(),
+            computed_name: String::new(),
             properties: PropertiesValue(None),
         };
         assert_eq!(t.framework(), Some(Framework::Pytest))
@@ -288,15 +286,15 @@ mod tests {
     #[test]
     fn test_detect_framework_example_name() {
         let t = Testrun {
-            classname: ValidatedString::default(),
-            name: ".py".try_into().unwrap(),
+            classname: String::new(),
+            name: ".py".to_string(),
             duration: None,
             outcome: Outcome::Pass,
-            testsuite: ValidatedString::default(),
+            testsuite: String::new(),
             failure_message: None,
             filename: None,
             build_url: None,
-            computed_name: ValidatedString::default(),
+            computed_name: String::new(),
             properties: PropertiesValue(None),
         };
         assert_eq!(t.framework(), Some(Framework::Pytest))
@@ -305,15 +303,15 @@ mod tests {
     #[test]
     fn test_detect_framework_failure_messages() {
         let t = Testrun {
-            classname: ValidatedString::default(),
-            name: ValidatedString::default(),
+            classname: String::new(),
+            name: String::new(),
             duration: None,
             outcome: Outcome::Pass,
-            testsuite: ValidatedString::default(),
+            testsuite: String::new(),
             failure_message: Some(".py".to_string()),
             filename: None,
             build_url: None,
-            computed_name: ValidatedString::default(),
+            computed_name: String::new(),
             properties: PropertiesValue(None),
         };
         assert_eq!(t.framework(), Some(Framework::Pytest))
@@ -322,15 +320,15 @@ mod tests {
     #[test]
     fn test_detect_build_url() {
         let t = Testrun {
-            classname: ValidatedString::default(),
-            name: ValidatedString::default(),
+            classname: String::new(),
+            name: String::new(),
             duration: None,
             outcome: Outcome::Pass,
-            testsuite: ValidatedString::default(),
+            testsuite: String::new(),
             failure_message: Some(".py".to_string()),
             filename: None,
             build_url: Some("https://example.com/build_url".to_string()),
-            computed_name: ValidatedString::default(),
+            computed_name: String::new(),
             properties: PropertiesValue(None),
         };
         assert_eq!(t.framework(), Some(Framework::Pytest))

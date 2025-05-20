@@ -6,7 +6,7 @@ use rand::rngs::SmallRng;
 use rand::seq::SliceRandom as _;
 use rand::{Rng, SeedableRng};
 use test_results_parser::binary::*;
-use test_results_parser::{Outcome, PropertiesValue, Testrun, ValidatedString};
+use test_results_parser::{Outcome, PropertiesValue, Testrun};
 
 criterion_group!(benches, binary);
 criterion_main!(benches);
@@ -175,15 +175,15 @@ fn create_random_testcases(
                     let name = Alphanumeric.sample_string(rng, name_len);
 
                     Testrun {
-                        name: name.try_into().unwrap(),
-                        classname: ValidatedString::default(),
+                        name: name,
+                        classname: String::new(),
                         duration: Some(1.0),
                         outcome: Outcome::Pass,
-                        testsuite: ValidatedString::default(),
+                        testsuite: String::new(),
                         failure_message: None,
                         filename: None,
                         build_url: None,
-                        computed_name: ValidatedString::default(),
+                        computed_name: String::new(),
                         properties: PropertiesValue(None),
                     }
                 })

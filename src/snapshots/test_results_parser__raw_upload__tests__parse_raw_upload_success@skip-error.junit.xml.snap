@@ -1,6 +1,5 @@
 ---
 source: src/raw_upload.rs
-assertion_line: 173
 expression: results
 input_file: tests/skip-error.junit.xml
 ---
