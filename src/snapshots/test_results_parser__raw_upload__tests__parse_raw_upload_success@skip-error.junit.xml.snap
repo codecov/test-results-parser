@@ -1,5 +1,6 @@
 ---
 source: src/raw_upload.rs
+assertion_line: 173
 expression: results
 input_file: tests/skip-error.junit.xml
 ---
@@ -14,6 +15,7 @@ input_file: tests/skip-error.junit.xml
       filename: ~
       build_url: ~
       computed_name: "tests.test_math.TestMath::test_subtract"
+      properties: ~
     - name: test_multiply
       classname: tests.test_math.TestMath
       duration: 0.1
@@ -23,6 +25,7 @@ input_file: tests/skip-error.junit.xml
       filename: ~
       build_url: ~
       computed_name: "tests.test_math.TestMath::test_multiply"
+      properties: ~
     - name: test_add
       classname: tests.test_math.TestMath
       duration: 0.1
@@ -32,4 +35,5 @@ input_file: tests/skip-error.junit.xml
       filename: ~
       build_url: ~
       computed_name: "tests.test_math.TestMath::test_add"
+      properties: ~
   warnings: []

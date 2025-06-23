@@ -1,13 +1,15 @@
 use anyhow::{Context, Result};
 use pyo3::prelude::*;
+use serde_json::Value;
 use std::collections::HashSet;
+use std::fmt;
 
 use quick_xml::events::attributes::{Attribute, Attributes};
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::reader::Reader;
 
 use crate::compute_name::{compute_name, unescape_str};
-use crate::testrun::{check_testsuites_name, Framework, Outcome, Testrun};
+use crate::testrun::{check_testsuites_name, Framework, Outcome, PropertiesValue, Testrun};
 use crate::validated_string::ValidatedString;
 use crate::warning::WarningInfo;
 use thiserror::Error;
@@ -126,6 +128,7 @@ fn populate(
         filename: file,
         build_url: None,
         computed_name: ValidatedString::default(),
+        properties: PropertiesValue(None),
     };
 
     let framework = framework.or_else(|| t.framework());
@@ -158,9 +161,129 @@ pub fn get_position_info(input: &[u8], byte_offset: usize) -> (usize, usize) {
     (line, column)
 }
 
+#[derive(Error, Debug)]
+struct NotEvalsPropertyError;
+
+impl fmt::Display for NotEvalsPropertyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "not evals property")
+    }
+}
+
+/// Parses the `property` element found in the `testcase` element.
+///
+/// This function is used to parse the `evals` attribute of the `testcase` element.
+/// It will update the `properties` field of the `testrun` object with the new value.
+///
+/// The `name` attribute in `property` encodes the hierarchy of the `value` attribute
+/// inside `Testrun.properties` (which is a JSON object).
+/// For example
+/// &lt;property name="evals.scores.isUseful.type" value="boolean" /&gt;
+/// &lt;property name="evals.scores.isUseful.value" value="true" /&gt;
+/// &lt;property name="evals.scores.isUseful.sum" value="1" /&gt;
+/// &lt;property name="evals.scores.isUseful.llm_judge" value="gemini_2.5pro" /&gt;
+///
+/// will be parsed as:
+/// {
+///     "scores": {
+///         "isUseful": {
+///             "type": "boolean",
+///             "value": "true",
+///             "sum": "1",
+///             "llm_judge": "gemini_2.5pro"
+///         }
+///     }
+/// }
+fn parse_property_element(e: &BytesStart, existing_properties: &mut PropertiesValue) -> Result<()> {
+    // Early return if not an evals property
+    let name = get_attribute(e, "name")?
+        .filter(|n| n.starts_with("evals"))
+        .ok_or(NotEvalsPropertyError)?;
+
+    let value = get_attribute(e, "value")?
+        .ok_or_else(|| anyhow::anyhow!("Property must have value attribute"))?;
+
+    let name_parts: Vec<&str> = name.split(".").collect();
+    if name_parts.len() < 2 {
+        anyhow::bail!("Property name must have at least 2 parts");
+    }
+
+    // Initialize properties if needed
+    if existing_properties.0.is_none() {
+        *existing_properties = PropertiesValue(Some(serde_json::json!({})));
+    }
+
+    let mut current = existing_properties.0.as_mut().unwrap();
+
+    // Navigate through intermediate parts (skip first "evals" and last key)
+    for part in &name_parts[1..name_parts.len() - 1] {
+        current = match current {
+            Value::Object(map) => {
+                map.entry(part.to_string()).or_insert_with(|| {
+                    if *part == "evaluations" {
+                        serde_json::json!([])
+                    } else {
+                        serde_json::json!({})
+                    }
+                });
+                map.get_mut(*part).unwrap()
+            }
+            Value::Array(array) => {
+                let idx = part
+                    .parse::<usize>()
+                    .map_err(|_| anyhow::anyhow!("Invalid array index: {}", part))?;
+                if idx >= array.len() {
+                    array.resize(idx + 1, serde_json::json!({}));
+                }
+                array.get_mut(idx).unwrap()
+            }
+            _ => anyhow::bail!(
+                "Cannot drill down into non-object/non-array value at part: {}",
+                part
+            ),
+        };
+    }
+
+    // Set the final value
+    match current {
+        Value::Object(map) => {
+            map.insert(name_parts.last().unwrap().to_string(), Value::String(value));
+        }
+        _ => anyhow::bail!("Cannot set value in non-object at final key"),
+    }
+
+    Ok(())
+}
+
 enum TestrunOrSkipped {
     Testrun(Testrun),
     Skipped,
+}
+
+fn handle_property_element(
+    e: &BytesStart,
+    saved_testrun: &mut Option<TestrunOrSkipped>,
+    buffer_position: u64,
+    warnings: &mut Vec<WarningInfo>,
+) -> Result<()> {
+    // Check if there is a testrun currently being processed
+    if saved_testrun.is_none() {
+        return Ok(());
+    }
+    let saved = saved_testrun
+        .as_mut()
+        .context("Error accessing saved testrun")?;
+    if let TestrunOrSkipped::Testrun(testrun) = saved {
+        if let Err(e) = parse_property_element(e, &mut testrun.properties) {
+            if !e.is::<NotEvalsPropertyError>() {
+                warnings.push(WarningInfo::new(
+                    format!("Error parsing `property` element: {}", e),
+                    buffer_position,
+                ));
+            }
+        }
+    };
+    Ok(())
 }
 
 pub fn use_reader(
@@ -286,6 +409,12 @@ pub fn use_reader(
                     let testsuites_name = get_attribute(&e, "name")?;
                     framework = testsuites_name.and_then(|name| check_testsuites_name(&name))
                 }
+                b"property" => handle_property_element(
+                    &e,
+                    &mut saved_testrun,
+                    reader.buffer_position(),
+                    &mut warnings,
+                )?,
                 _ => {}
             },
             Event::End(e) => match e.name().as_ref() {
@@ -378,6 +507,12 @@ pub fn use_reader(
                         TestrunOrSkipped::Skipped => {}
                     }
                 }
+                b"property" => handle_property_element(
+                    &e,
+                    &mut saved_testrun,
+                    reader.buffer_position(),
+                    &mut warnings,
+                )?,
                 _ => {}
             },
             Event::Text(mut xml_failure_message) => {

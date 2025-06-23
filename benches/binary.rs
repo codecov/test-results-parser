@@ -6,7 +6,7 @@ use rand::rngs::SmallRng;
 use rand::seq::SliceRandom as _;
 use rand::{Rng, SeedableRng};
 use test_results_parser::binary::*;
-use test_results_parser::{Outcome, Testrun, ValidatedString};
+use test_results_parser::{Outcome, PropertiesValue, Testrun, ValidatedString};
 
 criterion_group!(benches, binary);
 criterion_main!(benches);
@@ -184,6 +184,7 @@ fn create_random_testcases(
                         filename: None,
                         build_url: None,
                         computed_name: ValidatedString::default(),
+                        properties: PropertiesValue(None),
                     }
                 })
                 .collect();

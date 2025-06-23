@@ -1,0 +1,45 @@
+---
+source: src/raw_upload.rs
+assertion_line: 173
+expression: results
+input_file: tests/with-eval-properties-junit.xml
+---
+- framework: ~
+  testruns:
+    - name: Whats the status on root causing this issue in Sentry?
+      classname: begin-autofix
+      duration: 26.514
+      outcome: Failure
+      testsuite: Evaluation Suite
+      failure_message: Test failed
+      filename: ~
+      build_url: ~
+      computed_name: "begin-autofix::Whats the status on root causing this issue in Sentry?"
+      properties:
+        item:
+          cost: "0.12"
+          id: string
+        scores:
+          Factuality2:
+            avg: "0.6"
+            llm_judge: gemini_2.5pro
+            metadata:
+              rationale: The submitted answer is a superset of the expert answer and is fully consistent with it...
+            type: float
+            value: "0.6"
+          flakyScore:
+            avg: "2.33"
+            evaluations:
+              - llm_judge: gemini_2.5pro
+                value: "2.0"
+              - llm_judge: gemini_2.5pro
+                value: "2.5"
+              - llm_judge: gemini_2.5pro
+                value: "2.5"
+            type: float
+          isUseful:
+            llm_judge: gemini_2.5pro
+            sum: "1"
+            type: boolean
+            value: "true"
+  warnings: []

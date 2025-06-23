@@ -1,16 +1,42 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="0.186" timestamp="2023-11-10T12:32:56.675324" hostname="VFHNWJDWH9.local"><testcase classname="tests.test_parsers.TestParsers" name="test_junit[junit.xml--True]" time="0.001"><failure message="AssertionError: assert [{'duration': '0.010', 'name': 'tests.test_parsers.TestParsers.test_junit[junit.xml-]', 'outcome': 'failure'}, {'duration': '0.063', 'name': 'tests.test_parsers.TestParsers.test_junit[jest-junit.xml-]', 'outcome': 'pass'}] == ''">self = &lt;test_parsers.TestParsers object at 0x102182d10&gt;, filename = 'junit.xml', expected = '', check = True
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+    <testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="0.186"
+        timestamp="2023-11-10T12:32:56.675324" hostname="VFHNWJDWH9.local">
+        <testcase classname="tests.test_parsers.TestParsers" name="test_junit[junit.xml--True]"
+            time="0.001">
+            <failure
+                message="AssertionError: assert [{'duration': '0.010', 'name': 'tests.test_parsers.TestParsers.test_junit[junit.xml-]', 'outcome': 'failure'}, {'duration': '0.063', 'name': 'tests.test_parsers.TestParsers.test_junit[jest-junit.xml-]', 'outcome': 'pass'}] == ''">self
+                = &lt;test_parsers.TestParsers object at 0x102182d10&gt;, filename = 'junit.xml',
+                expected = '', check = True
 
-    @pytest.mark.parametrize(
-        "filename,expected,check",
-        [("junit.xml", "", True), ("jest-junit.xml", "", False)],
-    )
-    def test_junit(self, filename, expected, check):
-        with open(filename) as f:
-            junit_string = f.read()
-            res = parse_junit_xml(junit_string)
-            print(res)
-            if check:
-&gt;               assert res == expected
-E               AssertionError: assert [{'duration': '0.010', 'name': 'tests.test_parsers.TestParsers.test_junit[junit.xml-]', 'outcome': 'failure'}, {'duration': '0.063', 'name': 'tests.test_parsers.TestParsers.test_junit[jest-junit.xml-]', 'outcome': 'pass'}] == ''
+                @pytest.mark.parametrize(
+                "filename,expected,check",
+                [("junit.xml", "", True), ("jest-junit.xml", "", False)],
+                )
+                def test_junit(self, filename, expected, check):
+                with open(filename) as f:
+                junit_string = f.read()
+                res = parse_junit_xml(junit_string)
+                print(res)
+                if check:
+                &gt; assert res == expected
+                E AssertionError: assert [{'duration': '0.010', 'name':
+                'tests.test_parsers.TestParsers.test_junit[junit.xml-]', 'outcome': 'failure'},
+                {'duration': '0.063', 'name':
+                'tests.test_parsers.TestParsers.test_junit[jest-junit.xml-]', 'outcome': 'pass'}] ==
+                ''
 
-tests/test_parsers.py:16: AssertionError</failure></testcase><testcase classname="tests.test_parsers.TestParsers" name="test_junit[jest-junit.xml--False]" time="0.064" /></testsuite></testsuites>
+                tests/test_parsers.py:16: AssertionError</failure>
+        </testcase>
+        <testcase classname="tests.test_parsers.TestParsers"
+            name="test_junit[jest-junit.xml--False]" time="0.064" />
+        <testcase classname="tests.test_parsers.SomeEvalTest"
+            name="test_some_eval" time="1.064">
+            <properties>
+                <property name="evals.item.id" value="abc123" />
+                <property name="evals.item.cost" value="0.00142" />
+                <property name="evals.scores.is_useful" value="false" />
+            </properties>
+        </testcase>
+    </testsuite>
+</testsuites>

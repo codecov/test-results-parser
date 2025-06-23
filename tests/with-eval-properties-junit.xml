@@ -1,0 +1,57 @@
+
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+    <testsuite name="Evaluation Suite" time="26.514">
+        <properties>
+            <!-- Run-level properties -->
+            <property name="evals.run.name" value="test_run" />
+            <property name="evals.run.dataset_name" value="my_awesone_dataset" />
+            <property name="evals.run.metadata" value="Random run metadata? Like comments." />
+            <property name="evals.run.cost_avg" value="0.12" />
+            <property name="evals.run.time_avg" value="1.23" />
+        </properties>
+        <testcase
+            name="Whats the status on root causing this issue in Sentry?"
+            classname="begin-autofix"
+            time="26.514"
+        >
+            <properties>
+                <!-- Item-level properties -->
+                <property name="evals.item.id" value="string"></property>
+                <property name="evals.item.cost" value="0.12"></property>
+
+                <!-- Score properties using dot notation -->
+                <property name="evals.scores.Factuality2.type" value="float" />
+                <property name="evals.scores.Factuality2.value" value="0.6" />
+                <property name="evals.scores.Factuality2.avg" value="0.6" />
+                <property name="evals.scores.Factuality2.llm_judge" value="gemini_2.5pro" />
+                <property name="evals.scores.Factuality2.metadata.rationale"
+                    value="The submitted answer is a superset of the expert answer and is fully consistent with it..." />
+
+                <property name="evals.scores.isUseful.type" value="boolean" />
+                <property name="evals.scores.isUseful.value" value="true" />
+                <property name="evals.scores.isUseful.sum" value="1" />
+                <property name="evals.scores.isUseful.llm_judge" value="gemini_2.5pro" />
+
+                <!-- Multiple evaluations for flaky score -->
+                <property name="evals.scores.flakyScore.type" value="float" />
+                <property name="evals.scores.flakyScore.avg" value="2.33" />
+                <property name="evals.scores.flakyScore.evaluations.0.value" value="2.0" />
+                <property name="evals.scores.flakyScore.evaluations.0.llm_judge"
+                    value="gemini_2.5pro" />
+                <property name="evals.scores.flakyScore.evaluations.1.value" value="2.5" />
+                <property name="evals.scores.flakyScore.evaluations.1.llm_judge"
+                    value="gemini_2.5pro" />
+                <property name="evals.scores.flakyScore.evaluations.2.value" value="2.5" />
+                <property name="evals.scores.flakyScore.evaluations.2.llm_judge"
+                    value="gemini_2.5pro" />
+
+                <property name="not_eval_property" value="idk..." />
+            </properties>
+            <!-- Optional: failure element if test failed -->
+            <failure message="Test failed" type="AssertionError">
+                <!-- Failure details here -->
+            </failure>
+        </testcase>
+    </testsuite>
+</testsuites>

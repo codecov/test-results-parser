@@ -1,5 +1,6 @@
 ---
 source: src/raw_upload.rs
+assertion_line: 173
 expression: results
 input_file: tests/junit.xml
 ---
@@ -10,10 +11,11 @@ input_file: tests/junit.xml
       duration: 0.001
       outcome: Failure
       testsuite: pytest
-      failure_message: "self = <test_parsers.TestParsers object at 0x102182d10>, filename = 'junit.xml', expected = '', check = True\n\n    @pytest.mark.parametrize(\n        \"filename,expected,check\",\n        [(\"junit.xml\", \"\", True), (\"jest-junit.xml\", \"\", False)],\n    )\n    def test_junit(self, filename, expected, check):\n        with open(filename) as f:\n            junit_string = f.read()\n            res = parse_junit_xml(junit_string)\n            print(res)\n            if check:\n>               assert res == expected\nE               AssertionError: assert [{'duration': '0.010', 'name': 'tests.test_parsers.TestParsers.test_junit[junit.xml-]', 'outcome': 'failure'}, {'duration': '0.063', 'name': 'tests.test_parsers.TestParsers.test_junit[jest-junit.xml-]', 'outcome': 'pass'}] == ''\n\ntests/test_parsers.py:16: AssertionError"
+      failure_message: "self\n                = <test_parsers.TestParsers object at 0x102182d10>, filename = 'junit.xml',\n                expected = '', check = True\n\n                @pytest.mark.parametrize(\n                \"filename,expected,check\",\n                [(\"junit.xml\", \"\", True), (\"jest-junit.xml\", \"\", False)],\n                )\n                def test_junit(self, filename, expected, check):\n                with open(filename) as f:\n                junit_string = f.read()\n                res = parse_junit_xml(junit_string)\n                print(res)\n                if check:\n                > assert res == expected\n                E AssertionError: assert [{'duration': '0.010', 'name':\n                'tests.test_parsers.TestParsers.test_junit[junit.xml-]', 'outcome': 'failure'},\n                {'duration': '0.063', 'name':\n                'tests.test_parsers.TestParsers.test_junit[jest-junit.xml-]', 'outcome': 'pass'}] ==\n                ''\n\n                tests/test_parsers.py:16: AssertionError"
       filename: ~
       build_url: ~
       computed_name: "tests.test_parsers.TestParsers::test_junit[junit.xml--True]"
+      properties: ~
     - name: "test_junit[jest-junit.xml--False]"
       classname: tests.test_parsers.TestParsers
       duration: 0.064
@@ -23,4 +25,20 @@ input_file: tests/junit.xml
       filename: ~
       build_url: ~
       computed_name: "tests.test_parsers.TestParsers::test_junit[jest-junit.xml--False]"
+      properties: ~
+    - name: test_some_eval
+      classname: tests.test_parsers.SomeEvalTest
+      duration: 1.064
+      outcome: Pass
+      testsuite: pytest
+      failure_message: ~
+      filename: ~
+      build_url: ~
+      computed_name: "tests.test_parsers.SomeEvalTest::test_some_eval"
+      properties:
+        item:
+          cost: "0.00142"
+          id: abc123
+        scores:
+          is_useful: "false"
   warnings: []

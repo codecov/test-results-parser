@@ -1,5 +1,6 @@
 ---
 source: src/raw_upload.rs
+assertion_line: 173
 expression: results
 input_file: tests/no-testsuite-name.xml
 ---
@@ -14,4 +15,5 @@ input_file: tests/no-testsuite-name.xml
       filename: ~
       build_url: ~
       computed_name: "a_unit_test::a_unit_test"
+      properties: ~
   warnings: []

@@ -1,5 +1,6 @@
 ---
 source: src/raw_upload.rs
+assertion_line: 173
 expression: results
 input_file: tests/phpunit.junit.xml
 ---
@@ -14,6 +15,7 @@ input_file: tests/phpunit.junit.xml
       filename: /file1.php
       build_url: ~
       computed_name: "class.className::test1"
+      properties: ~
     - name: test2
       classname: ""
       duration: 0.1
@@ -23,4 +25,5 @@ input_file: tests/phpunit.junit.xml
       filename: /file1.php
       build_url: ~
       computed_name: "::test2"
+      properties: ~
   warnings: []

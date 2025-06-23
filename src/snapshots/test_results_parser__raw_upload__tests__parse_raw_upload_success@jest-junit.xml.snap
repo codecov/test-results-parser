@@ -1,5 +1,6 @@
 ---
 source: src/raw_upload.rs
+assertion_line: 173
 expression: results
 input_file: tests/jest-junit.xml
 ---
@@ -14,6 +15,7 @@ input_file: tests/jest-junit.xml
       filename: ~
       build_url: ~
       computed_name: Title when rendered renders pull title
+      properties: ~
     - name: Title when rendered renders pull author
       classname: Title when rendered renders pull author
       duration: 0.005
@@ -23,6 +25,7 @@ input_file: tests/jest-junit.xml
       filename: ~
       build_url: ~
       computed_name: Title when rendered renders pull author
+      properties: ~
     - name: Title when rendered renders pull updatestamp
       classname: Title when rendered renders pull updatestamp
       duration: 0.002
@@ -32,6 +35,7 @@ input_file: tests/jest-junit.xml
       filename: ~
       build_url: ~
       computed_name: Title when rendered renders pull updatestamp
+      properties: ~
     - name: Title when rendered for first pull request renders pull title
       classname: Title when rendered for first pull request renders pull title
       duration: 0.006
@@ -41,4 +45,5 @@ input_file: tests/jest-junit.xml
       filename: ~
       build_url: ~
       computed_name: Title when rendered for first pull request renders pull title
+      properties: ~
   warnings: []

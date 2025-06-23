@@ -10,7 +10,7 @@ mod testrun;
 mod validated_string;
 mod warning;
 
-pub use testrun::{Outcome, Testrun};
+pub use testrun::{Outcome, PropertiesValue, Testrun};
 pub use validated_string::ValidatedString;
 pyo3::create_exception!(test_results_parser, ComputeNameError, PyException);
 

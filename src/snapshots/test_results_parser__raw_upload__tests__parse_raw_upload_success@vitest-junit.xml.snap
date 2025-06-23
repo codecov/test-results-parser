@@ -1,5 +1,6 @@
 ---
 source: src/raw_upload.rs
+assertion_line: 173
 expression: results
 input_file: tests/vitest-junit.xml
 ---
@@ -14,6 +15,7 @@ input_file: tests/vitest-junit.xml
       filename: ~
       build_url: ~
       computed_name: __tests__/test-file-1.test.ts > first test file > 2 + 2 should equal 4
+      properties: ~
     - name: first test file &gt; 4 - 2 should equal 2
       classname: __tests__/test-file-1.test.ts
       duration: 0
@@ -23,4 +25,5 @@ input_file: tests/vitest-junit.xml
       filename: ~
       build_url: ~
       computed_name: __tests__/test-file-1.test.ts > first test file > 4 - 2 should equal 2
+      properties: ~
   warnings: []

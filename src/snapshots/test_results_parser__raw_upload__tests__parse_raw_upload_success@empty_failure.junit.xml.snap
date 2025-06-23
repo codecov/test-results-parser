@@ -1,5 +1,6 @@
 ---
 source: src/raw_upload.rs
+assertion_line: 173
 expression: results
 input_file: tests/empty_failure.junit.xml
 ---
@@ -14,6 +15,7 @@ input_file: tests/empty_failure.junit.xml
       filename: "./test.rb"
       build_url: ~
       computed_name: "test.test::test.test works"
+      properties: ~
     - name: test.test fails
       classname: test.test
       duration: 1
@@ -23,4 +25,5 @@ input_file: tests/empty_failure.junit.xml
       filename: "./test.rb"
       build_url: ~
       computed_name: "test.test::test.test fails"
+      properties: ~
   warnings: []

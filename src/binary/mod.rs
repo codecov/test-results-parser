@@ -19,7 +19,7 @@ mod tests {
     use timestamps::DAY;
 
     use crate::{
-        testrun::{Outcome, Testrun},
+        testrun::{Outcome, PropertiesValue, Testrun},
         validated_string::ValidatedString,
     };
 
@@ -36,6 +36,7 @@ mod tests {
             filename: None,
             build_url: None,
             computed_name: ValidatedString::default(),
+            properties: PropertiesValue(None),
         }
     }
 
