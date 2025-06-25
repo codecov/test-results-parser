@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyFloat, PyInt, PyList, PyString};
+use pyo3::types::PyString;
 use pyo3::{PyAny, PyResult};
 use serde::Serialize;
 use serde_json::Value;
@@ -125,8 +125,11 @@ impl<'py> IntoPyObject<'py> for PropertiesValue {
     fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         match self.0 {
             Some(value) => {
-                let converted_result = value_to_pyobject(&value, py)?;
-                Ok(converted_result.into_bound(py))
+                let dumped_object = serde_json::to_string(&value).map_err(|e| {
+                    PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid JSON: {}", e))
+                })?;
+                let py_str = PyString::new(py, &dumped_object);
+                Ok(py_str.into_any())
             }
             None => Ok(py.None().into_bound(py)),
         }
@@ -139,80 +142,14 @@ impl<'py> FromPyObject<'py> for PropertiesValue {
             return Ok(PropertiesValue(None));
         }
 
-        let value = pyobject_to_value(ob)?;
-        Ok(PropertiesValue(Some(value)))
+        let s = ob.str()?.to_string();
+        let v: Value = serde_json::from_str(&s).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Invalid JSON: {}", e))
+        })?;
+        Ok(PropertiesValue(Some(v)))
     }
 }
 
-fn pyobject_to_value(ob: &Bound<'_, PyAny>) -> PyResult<Value> {
-    if ob.is_none() {
-        return Ok(Value::Null);
-    }
-
-    if let Ok(s) = ob.extract::<&str>() {
-        return Ok(Value::String(s.to_string()));
-    }
-
-    if let Ok(i) = ob.extract::<i64>() {
-        return Ok(Value::Number(i.into()));
-    }
-
-    if let Ok(f) = ob.extract::<f64>() {
-        return Ok(Value::Number(serde_json::Number::from_f64(f).unwrap()));
-    }
-
-    if let Ok(b) = ob.extract::<bool>() {
-        return Ok(Value::Bool(b));
-    }
-
-    if let Ok(list) = ob.downcast::<PyList>() {
-        let values = list
-            .iter()
-            .map(|item| pyobject_to_value(&item))
-            .collect::<PyResult<Vec<Value>>>()?;
-        return Ok(Value::Array(values));
-    }
-
-    if let Ok(dict) = ob.downcast::<PyDict>() {
-        let mut map = serde_json::Map::new();
-        for (key, value) in dict.iter() {
-            let key_str = key.extract::<&str>()?;
-            let value_json = pyobject_to_value(&value)?;
-            map.insert(key_str.to_string(), value_json);
-        }
-        return Ok(Value::Object(map));
-    }
-
-    // If we can't convert it, try to convert to string as fallback
-    let s = ob.str()?.to_string();
-    Ok(Value::String(s))
-}
-
-fn value_to_pyobject(value: &Value, py: Python) -> PyResult<PyObject> {
-    match value {
-        Value::String(s) => Ok(PyString::new(py, s).into()),
-        Value::Number(n) => Ok(PyFloat::new(py, n.as_f64().unwrap()).into()),
-        // Using PyBool returns a Borrowed reference to 'True' or 'False' (singletons)
-        // This messed up the `.into()` conversion. So I'm using PyInt instead.
-        Value::Bool(b) => Ok(PyInt::new(py, *b as i64).into()),
-        Value::Null => Ok(py.None()),
-        Value::Array(a) => {
-            let values_as_pyobjects = a
-                .iter()
-                .map(|v| value_to_pyobject(v, py))
-                .collect::<Result<Vec<PyObject>, PyErr>>()?;
-            let list = PyList::new(py, values_as_pyobjects)?;
-            Ok(list.into())
-        }
-        Value::Object(o) => {
-            let dict = PyDict::new(py);
-            for (key, value) in o.iter() {
-                dict.set_item(key, value_to_pyobject(value, py)?)?;
-            }
-            Ok(dict.into())
-        }
-    }
-}
 // i can't seem to get  pyo3(from_item_all) to work when IntoPyObject is also being derived
 #[derive(IntoPyObject, FromPyObject, Clone, Debug, Serialize, PartialEq)]
 pub struct Testrun {
@@ -438,8 +375,7 @@ mod tests {
                 .expect("Failed to convert PropertiesValue to Python object");
             let round_trip_value = PropertiesValue::extract_bound(&property_py)
                 .expect("Failed to extract PropertiesValue from Python object");
-            // The conversion of ANY number into PyObj casts that number into float
-            assert_eq!(round_trip_value, PropertiesValue(Some(json!(42.0))));
+            assert_eq!(round_trip_value, PropertiesValue(Some(json!(42))));
         })
     }
 
@@ -453,8 +389,7 @@ mod tests {
                 .expect("Failed to convert PropertiesValue to Python object");
             let round_trip_value = PropertiesValue::extract_bound(&property_py)
                 .expect("Failed to extract PropertiesValue from Python object");
-            // Conversion from booleans are cast into integers
-            assert_eq!(round_trip_value, PropertiesValue(Some(json!(1))));
+            assert_eq!(round_trip_value, PropertiesValue(Some(json!(true))));
         })
     }
 
@@ -475,7 +410,7 @@ mod tests {
     #[test]
     fn test_properties_into_list_with_values_conversion() {
         setup();
-        let property = PropertiesValue(Some(json!(["item1", 123, 4.20, true])));
+        let property = PropertiesValue(Some(json!(["item1", 123, 4.25, true])));
         Python::with_gil(|py| {
             let property_py = property
                 .into_pyobject(py)
@@ -485,7 +420,7 @@ mod tests {
             // Note: booleans get converted to integers in the round trip
             assert_eq!(
                 round_trip_value,
-                PropertiesValue(Some(json!(["item1", 123.0, 4.20, 1])))
+                PropertiesValue(Some(json!(["item1", 123, 4.25, true])))
             );
         })
     }
@@ -523,8 +458,8 @@ mod tests {
                 round_trip_value,
                 PropertiesValue(Some(json!({
                     "string_key": "string_value",
-                    "int_key": 456.0,
-                    "bool_key": 0
+                    "int_key": 456,
+                    "bool_key": false
                 })))
             );
         })
@@ -600,7 +535,7 @@ mod tests {
             assert_eq!(
                 round_trip_value,
                 PropertiesValue(Some(json!({
-                    "numbers": [1.0, 2.0, 3.0],
+                    "numbers": [1, 2, 3],
                     "name": "test"
                 })))
             );
