@@ -1,6 +1,6 @@
 [package]
 name = "test_results_parser"
-version = "0.5.4"  # 0.5.4 release is a copy of 0.5.1 and diverges from main
+version = "0.5.5"  # 0.5.4 release is a copy of 0.5.1 and diverges from main
 edition = "2021"
 
 [lib]
