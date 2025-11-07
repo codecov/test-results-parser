@@ -79,7 +79,7 @@ jobs:
           pytest --cov --junitxml=python-test-results.xml
 
           # Turn the Rust coverage data into an lcov file
-          cargo llvm-cov --no-run --lcov --output-path bindings.lcov
+          cargo llvm-cov report --lcov --output-path bindings.lcov
 
       - name: Upload coverage data to Codecov
         if: ${{ !cancelled() }}
