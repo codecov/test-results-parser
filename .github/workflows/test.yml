@@ -19,29 +19,55 @@ jobs:
         run: make lint
         
   run_tests:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         id: setup-python
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
       - name: Install Rust Toolchain
         run: rustup toolchain install stable --profile minimal --no-self-update
-      - name: Install requirements
+      - name: Install requirements (Unix)
+        if: runner.os != 'Windows'
         run: |
           python -m venv venv
           . venv/bin/activate
           pip install maturin
           pip install -r tests/requirements.txt
           maturin develop
-      - name: Install codecov cli
+      - name: Install requirements (Windows)
+        if: runner.os == 'Windows'
         run: |
-          pip install --no-cache-dir git+https://github.com/codecov/codecov-cli.git@joseph/test-results-staging
-      - name: Run tests
+          python -m venv venv
+          venv\Scripts\activate
+          pip install maturin
+          pip install -r tests/requirements.txt
+          maturin develop
+      - name: Install codecov cli (Unix)
+        if: runner.os != 'Windows'
         run: |
           . venv/bin/activate
+          pip install --no-cache-dir git+https://github.com/codecov/codecov-cli.git@joseph/test-results-staging
+      - name: Install codecov cli (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          venv\Scripts\activate
+          pip install --no-cache-dir git+https://github.com/codecov/codecov-cli.git@joseph/test-results-staging
+      - name: Run tests (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          . venv/bin/activate
+          python -m pytest --cov-report=xml:coverage.xml --cov=. --junitxml=unit.junit.xml
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          venv\Scripts\activate
           python -m pytest --cov-report=xml:coverage.xml --cov=. --junitxml=unit.junit.xml
 
       - name: Upload results to codecov
