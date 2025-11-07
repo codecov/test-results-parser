@@ -35,6 +35,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
 
       - run: cargo test --workspace --all-features --doc
       - run: cargo doc --workspace --all-features --document-private-items --no-deps
