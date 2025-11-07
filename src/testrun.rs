@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 use pyo3::types::PyString;
-use pyo3::{PyAny, PyResult};
+use pyo3::PyAny;
 use serde::Serialize;
 
 use crate::validated_string::ValidatedString;
@@ -57,8 +57,10 @@ impl<'py> IntoPyObject<'py> for Outcome {
     }
 }
 
-impl<'py> FromPyObject<'py> for Outcome {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'py> FromPyObject<'_, 'py> for Outcome {
+    type Error = PyErr;
+
+    fn extract(ob: pyo3::Borrowed<'_, 'py, PyAny>) -> Result<Self, PyErr> {
         let s = ob.extract::<&str>()?;
         match s {
             "pass" => Ok(Outcome::Pass),
@@ -96,8 +98,10 @@ impl<'py> IntoPyObject<'py> for Framework {
     }
 }
 
-impl<'py> FromPyObject<'py> for Framework {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'py> FromPyObject<'_, 'py> for Framework {
+    type Error = PyErr;
+
+    fn extract(ob: pyo3::Borrowed<'_, 'py, PyAny>) -> Result<Self, PyErr> {
         let s = ob.extract::<&str>()?;
         match s {
             "Pytest" => Ok(Framework::Pytest),
