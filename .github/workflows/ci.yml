@@ -40,8 +40,12 @@ jobs:
       - run: cargo doc --workspace --all-features --document-private-items --no-deps
 
   test:
+    strategy:
+      matrix:
+        version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        os: [ubuntu-latest, macos-latest, windows-latest]
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -51,6 +55,9 @@ jobs:
       - uses: taiki-e/install-action@nextest
 
       - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.version }}
+
       - uses: astral-sh/setup-uv@v3
       - run: uv sync --all-extras --dev
 
