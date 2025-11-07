@@ -9,7 +9,7 @@ name = "test_results_parser"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.22.2"
+pyo3 = "0.27.1"
 quick-xml = "0.36.0"
 regex = "1.10.4"
 serde = { version = "1.0", features = ["derive"] }
