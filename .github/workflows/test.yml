@@ -54,7 +54,7 @@ jobs:
           url: ${{ secrets.CODECOV_URL }}
           files: unit.junit.xml
           disable_search: true
-          report_type: test-results
+          report_type: test_results
 
       - name: Upload results to codecov (Staging)
         if: ${{ !cancelled() }}
@@ -64,4 +64,4 @@ jobs:
           url: ${{ secrets.CODECOV_STAGING_API_URL }}
           files: unit.junit.xml
           disable_search: true
-          report_type: test-results
+          report_type: test_results
