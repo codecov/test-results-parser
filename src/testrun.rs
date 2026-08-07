@@ -363,7 +363,8 @@ mod tests {
             let property_py = property
                 .into_pyobject(py)
                 .expect("Failed to convert PropertiesValue to Python object");
-            let round_trip_value = (property_py).extract::<PropertiesValue>()
+            let round_trip_value = (property_py)
+                .extract::<PropertiesValue>()
                 .expect("Failed to extract PropertiesValue from Python object");
             assert_eq!(
                 round_trip_value,
@@ -380,7 +381,8 @@ mod tests {
             let property_py = property
                 .into_pyobject(py)
                 .expect("Failed to convert PropertiesValue to Python object");
-            let round_trip_value = (property_py).extract::<PropertiesValue>()
+            let round_trip_value = (property_py)
+                .extract::<PropertiesValue>()
                 .expect("Failed to extract PropertiesValue from Python object");
             assert_eq!(round_trip_value, PropertiesValue(Some(json!(42))));
         })
@@ -394,7 +396,8 @@ mod tests {
             let property_py = property
                 .into_pyobject(py)
                 .expect("Failed to convert PropertiesValue to Python object");
-            let round_trip_value = (property_py).extract::<PropertiesValue>()
+            let round_trip_value = (property_py)
+                .extract::<PropertiesValue>()
                 .expect("Failed to extract PropertiesValue from Python object");
             assert_eq!(round_trip_value, PropertiesValue(Some(json!(true))));
         })
@@ -408,7 +411,8 @@ mod tests {
             let property_py = property
                 .into_pyobject(py)
                 .expect("Failed to convert PropertiesValue to Python object");
-            let round_trip_value = (property_py).extract::<PropertiesValue>()
+            let round_trip_value = (property_py)
+                .extract::<PropertiesValue>()
                 .expect("Failed to extract PropertiesValue from Python object");
             assert_eq!(round_trip_value, PropertiesValue(Some(json!([]))));
         })
@@ -422,7 +426,8 @@ mod tests {
             let property_py = property
                 .into_pyobject(py)
                 .expect("Failed to convert PropertiesValue to Python object");
-            let round_trip_value = (property_py).extract::<PropertiesValue>()
+            let round_trip_value = (property_py)
+                .extract::<PropertiesValue>()
                 .expect("Failed to extract PropertiesValue from Python object");
             // Note: booleans get converted to integers in the round trip
             assert_eq!(
@@ -440,7 +445,8 @@ mod tests {
             let property_py = property
                 .into_pyobject(py)
                 .expect("Failed to convert PropertiesValue to Python object");
-            let round_trip_value = (property_py).extract::<PropertiesValue>()
+            let round_trip_value = (property_py)
+                .extract::<PropertiesValue>()
                 .expect("Failed to extract PropertiesValue from Python object");
             assert_eq!(round_trip_value, PropertiesValue(Some(json!({}))));
         })
@@ -458,7 +464,8 @@ mod tests {
             let property_py = property
                 .into_pyobject(py)
                 .expect("Failed to convert PropertiesValue to Python object");
-            let round_trip_value = (property_py).extract::<PropertiesValue>()
+            let round_trip_value = (property_py)
+                .extract::<PropertiesValue>()
                 .expect("Failed to extract PropertiesValue from Python object");
             // Note: booleans get converted to integers in the round trip
             assert_eq!(
@@ -485,7 +492,8 @@ mod tests {
             let property_py = property
                 .into_pyobject(py)
                 .expect("Failed to convert PropertiesValue to Python object");
-            let round_trip_value = (property_py).extract::<PropertiesValue>()
+            let round_trip_value = (property_py)
+                .extract::<PropertiesValue>()
                 .expect("Failed to extract PropertiesValue from Python object");
             assert_eq!(
                 round_trip_value,
@@ -512,7 +520,8 @@ mod tests {
             let property_py = property
                 .into_pyobject(py)
                 .expect("Failed to convert PropertiesValue to Python object");
-            let round_trip_value = (property_py).extract::<PropertiesValue>()
+            let round_trip_value = (property_py)
+                .extract::<PropertiesValue>()
                 .expect("Failed to extract PropertiesValue from Python object");
             assert_eq!(
                 round_trip_value,
@@ -537,7 +546,8 @@ mod tests {
             let property_py = property
                 .into_pyobject(py)
                 .expect("Failed to convert PropertiesValue to Python object");
-            let round_trip_value = (property_py).extract::<PropertiesValue>()
+            let round_trip_value = (property_py)
+                .extract::<PropertiesValue>()
                 .expect("Failed to extract PropertiesValue from Python object");
             assert_eq!(
                 round_trip_value,
