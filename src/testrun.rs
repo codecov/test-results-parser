@@ -1,4 +1,5 @@
 use pyo3::prelude::*;
+use pyo3::{Borrowed, FromPyObject};
 use pyo3::types::PyString;
 use pyo3::{PyAny, PyResult};
 use serde::Serialize;
@@ -58,8 +59,10 @@ impl<'py> IntoPyObject<'py> for Outcome {
     }
 }
 
-impl<'py> FromPyObject<'py> for Outcome {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for Outcome {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'a, 'py, PyAny>) -> Result<Self, PyErr> {
         let s = ob.extract::<&str>()?;
         match s {
             "pass" => Ok(Outcome::Pass),
@@ -97,8 +100,10 @@ impl<'py> IntoPyObject<'py> for Framework {
     }
 }
 
-impl<'py> FromPyObject<'py> for Framework {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for Framework {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
         let s = ob.extract::<&str>()?;
         match s {
             "Pytest" => Ok(Framework::Pytest),
@@ -106,7 +111,7 @@ impl<'py> FromPyObject<'py> for Framework {
             "Jest" => Ok(Framework::Jest),
             "PHPUnit" => Ok(Framework::PHPUnit),
             _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Invalid outcome: {}",
+                "Invalid framework: {}",
                 s
             ))),
         }
@@ -136,8 +141,10 @@ impl<'py> IntoPyObject<'py> for PropertiesValue {
     }
 }
 
-impl<'py> FromPyObject<'py> for PropertiesValue {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for PropertiesValue {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
         if ob.is_none() {
             return Ok(PropertiesValue(None));
         }

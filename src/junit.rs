@@ -526,7 +526,7 @@ pub fn use_reader(
                             xml_failure_message.inplace_trim_start();
 
                             testrun.failure_message = Some(
-                                unescape_str(std::str::from_utf8(&xml_failure_message)?).into(),
+                                unescape_str(std::str::from_utf8(&xml_failure_message).map_err(|e| pyo3::exceptions::PyUnicodeDecodeError::new_err(e.to_string()))?).into(),
                             );
                         }
                         TestrunOrSkipped::Skipped => {}
