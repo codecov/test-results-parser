@@ -255,6 +255,7 @@ fn parse_property_element(e: &BytesStart, existing_properties: &mut PropertiesVa
     Ok(())
 }
 
+#[allow(clippy::large_enum_variant)]
 enum TestrunOrSkipped {
     Testrun(Testrun),
     Skipped,
@@ -515,24 +516,26 @@ pub fn use_reader(
                 )?,
                 _ => {}
             },
-            Event::Text(mut xml_failure_message) => {
-                if in_failure || in_error {
-                    let saved = saved_testrun
-                        .as_mut()
-                        .context("Error accessing saved testrun")?;
-                    match saved {
-                        TestrunOrSkipped::Testrun(testrun) => {
-                            xml_failure_message.inplace_trim_end();
-                            xml_failure_message.inplace_trim_start();
+            Event::Text(mut xml_failure_message) if in_failure || in_error => {
+                let saved = saved_testrun
+                    .as_mut()
+                    .context("Error accessing saved testrun")?;
+                match saved {
+                    TestrunOrSkipped::Testrun(testrun) => {
+                        xml_failure_message.inplace_trim_end();
+                        xml_failure_message.inplace_trim_start();
 
-                            testrun.failure_message = Some(
-                                unescape_str(std::str::from_utf8(&xml_failure_message)?).into(),
-                            );
-                        }
-                        TestrunOrSkipped::Skipped => {}
+                        testrun.failure_message = Some(
+                            unescape_str(std::str::from_utf8(&xml_failure_message).map_err(
+                                |e| pyo3::exceptions::PyUnicodeDecodeError::new_err(e.to_string()),
+                            )?)
+                            .into(),
+                        );
                     }
+                    TestrunOrSkipped::Skipped => {}
                 }
             }
+            Event::Text(_) => {}
 
             // There are several other `Event`s we do not consider here
             _ => (),
